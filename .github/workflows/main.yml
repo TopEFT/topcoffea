@@ -45,3 +45,12 @@ jobs:
       - name: Install pip packages
         run: |
           conda run -n topcoffea-env pip install -e .
+
+      - name: Pytest setup
+        run: |
+          conda install -y -n topcoffea-env -c conda-forge pytest
+
+      - name: Test unit
+        run: |
+          conda run -n topcoffea-env pytest tests/test_unit.py
+

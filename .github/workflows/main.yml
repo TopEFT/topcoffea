@@ -8,16 +8,39 @@ on:
 jobs:
 
   # Based on https://github.com/py-actions/flake8#quick-start
-  flake8-lint:
+  Check flake8 lint:
     runs-on: ubuntu-latest
     name: Lint
     steps:
       - name: Check out source repository
         uses: actions/checkout@v3
       - name: Set up Python environment
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
       - name: flake8 Lint
         uses: py-actions/flake8@v2
         with:
           ignore: "E116,E201,E202,E203,E211,E221,E222,E226,E225,E227,E228,E231,E241,E251,E261,E262,E265,E266,E271,E272,E301,E302,E303,E305,E402,F403,F405,E501,W504,E701,E702,E711,E713,E714,E722,E731,E741,F841,W391,W605"
 
+  Check topcoffea:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Add conda to system path
+        run: |
+          echo $CONDA/bin >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          conda config --set channel_priority strict
+          conda config --add channels conda-forge
+          conda env create -f environment.yml -n topcoffea-env
+
+      - name: Conda list
+        run: |
+          conda list -n topcoffea-env
+
+      - name: Install pip packages
+        run: |
+          conda run -n coffea-env pip install -e .

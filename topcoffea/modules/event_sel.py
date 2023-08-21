@@ -1,5 +1,6 @@
 # Event selection functions
 
+import numpy as np
 
 # This is a helper function called by trg_pass_no_overlap
 #   - Takes events objects, and a lits of triggers

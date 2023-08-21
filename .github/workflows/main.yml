@@ -43,4 +43,4 @@ jobs:
 
       - name: Install pip packages
         run: |
-          conda run -n coffea-env pip install -e .
+          conda run -n topcoffea-env pip install -e .

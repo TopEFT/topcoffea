@@ -2,7 +2,6 @@ import os
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.update_json import update_json
-from topcoffea.modules.utils import load_sample_json_file
 
 def test_update_json():
     src_fname = topcoffea_path("params/params.json")
@@ -36,6 +35,7 @@ def test_update_json():
     update_json(src_fname,outname=dst_fname,verbose=True,**updates)
 
     # Check that the updates were all applied correctly
-    test_jsn = load_sample_json_file(dst_fname)
+    with open(fpath) as f:
+        test_jsn = json.load(dst_fname)
     for k,v in updates.items():
         assert (test_jsn[k] == v)

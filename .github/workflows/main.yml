@@ -50,7 +50,19 @@ jobs:
         run: |
           conda install -y -n topcoffea-env -c conda-forge pytest
 
+      - name: Test utils
+        run: |
+          conda run -n coffea-env pytest tests/test_utils.py
+
+      - name: Test update json
+        run: |
+          conda run -n coffea-env pytest tests/test_update_json.py
+
       - name: Test unit
         run: |
           conda run -n topcoffea-env pytest tests/test_unit.py
+
+      - name: Test histEFT
+        run: |
+          conda run -n topcoffea-env pytest tests/test_HistEFT_add.py
 

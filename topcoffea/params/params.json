@@ -4,7 +4,7 @@
     "mva_TTH_m_cut" : 0.85,
 
     "topmva_wp_t_e" : 0.81,
-    "topmva_wp_t_m" : 0.64
+    "topmva_wp_t_m" : 0.64,
 
     "btagcsv_wp_loose_UL16"     : 0.1918,
     "btagcsv_wp_loose_UL16APV"  : 0.2027,
@@ -26,6 +26,6 @@
 
     "pu_w" : 69200,
     "pu_w_up" : 72400,
-    "pu_w_down" : 66000,
+    "pu_w_down" : 66000
 
 }

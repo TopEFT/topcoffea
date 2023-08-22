@@ -12,7 +12,8 @@ def get_lumi(year):
 
 
 # Retrun the param value from params.json for a given param name
-def get_param(param_name):
+# The tc signifies that the param is in topcoffea
+def get_tc_param(param_name):
     param_json = topcoffea_path("params/params.json")
     with open(param_json) as f_params:
         params = json.load(f_params)

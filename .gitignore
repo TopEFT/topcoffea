@@ -1,0 +1,5 @@
+# Temporary and binary files
+__pycache__/*
+
+# Package files
+*.egg-info

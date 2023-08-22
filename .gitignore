@@ -1,5 +1,7 @@
 # Temporary and binary files
+*/__pycache__/*
 __pycache__/*
+.*.swp
 
 # Package files
 *.egg-info

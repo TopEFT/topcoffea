@@ -5,7 +5,7 @@ from topcoffea.modules.update_json import update_json
 from topcoffea.modules.utils import load_sample_json_file
 
 def test_update_json():
-    src_fname = topcoffea_path("json/test_samples/UL17_private_ttH_for_CI.json")
+    src_fname = topcoffea_path("params/lumi.json")
     dst_fname = "tmp_test_file.json"
 
     assert (os.path.exists(src_fname))
@@ -27,11 +27,9 @@ def test_update_json():
     assert (a==b)
 
     updates = {
-        "xsec": 909.090,
-        "WCnames": ["ctG","ctZ","cpt"],
-        "year": "1999",
-        "files": [],
-        "isData": False
+        "2016APV": 909.090,
+        "2016": "HELLO WORLD",
+        "2017": -999,
     }
 
     # Apply the above updates and overwrite the previous test file

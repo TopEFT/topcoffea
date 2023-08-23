@@ -1,25 +1,25 @@
 {
-  "xsec": 999,
-  "year": "2099",
-  "treeName": "Events",
-  "histAxisName": "Example",
-  "options": "",
-  "WCnames": [],
-  "files": [
-    "example.root"
-  ],
-  "nEvents": 999,
-  "nGenEvents":  999,
-  "nSumOfWeights": 999,
-  "isData": false,
-  "nSumOfWeights_ISRUp": 999,
-  "nSumOfWeights_ISRDown": 999,
-  "nSumOfWeights_FSRUp": 999,
-  "nSumOfWeights_FSRDown": 999,
-  "nSumOfWeights_renormUp": 999,
-  "nSumOfWeights_renormDown": 999,
-  "nSumOfWeights_factUp": 999,
-  "nSumOfWeights_factDown": 999,
-  "nSumOfWeights_renormfactUp": 999,
-  "nSumOfWeights_renormfactDown": 999
+    "xsec": 999.9,
+    "year": "2099",
+    "treeName": "Events",
+    "histAxisName": "Example",
+    "options": "",
+    "WCnames": [],
+    "files": [
+        "example.root"
+    ],
+    "nEvents": 999.9,
+    "nGenEvents":  999.9,
+    "nSumOfWeights": 999.9,
+    "isData": false,
+    "nSumOfWeights_ISRUp": 999.9,
+    "nSumOfWeights_ISRDown": 999.9,
+    "nSumOfWeights_FSRUp": 999.9,
+    "nSumOfWeights_FSRDown": 999.9,
+    "nSumOfWeights_renormUp": 999.9,
+    "nSumOfWeights_renormDown": 999.9,
+    "nSumOfWeights_factUp": 999.9,
+    "nSumOfWeights_factDown": 999.9,
+    "nSumOfWeights_renormfactUp": 999.9,
+    "nSumOfWeights_renormfactDown": 999.9
 }

@@ -23,8 +23,10 @@ def test_update_json():
     update_json(src_fname,outname=dst_fname,verbose=True)
 
     assert (os.path.exists(dst_fname))
-    a = json.load(src_fname)
-    b = json.load(dst_fname)
+    with open(src_fname) as f:
+        a = json.load(f)
+    with open(dst_fname) as f:
+        b = json.load(f)
     for k,v in a.items():
         assert (a[k] == b[k])
 

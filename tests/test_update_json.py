@@ -27,9 +27,11 @@ def test_update_json():
     assert (a==b)
 
     updates = {
-        "lumi_2016APV": 909.090,
-        "lumi_2016": "HELLO WORLD",
-        "lumi_2017": -999,
+        "xsec": 909.090,
+        "WCnames": ["ctG","ctZ","cpt"],
+        "year": "1999",
+        "files": [],
+        "isData": True
     }
 
     # Apply the above updates and overwrite the previous test file

@@ -7,7 +7,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     # Include data files (Note: "include_package_data=True" does not seem to work)
     package_data={
-        "topeft" : [
+        "topcoffea" : [
             "params/*",
             "data/fromTTH/fakerate/*.root",
             "data/leptonSF/*/*.root",

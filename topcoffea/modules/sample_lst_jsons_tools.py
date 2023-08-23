@@ -4,13 +4,15 @@
 import json
 import subprocess
 import os
-from topcoffea.modules.samples import loadxsecdic
+import yaml
 from topcoffea.modules.combine_json_ext import combine_json_ext
 from topcoffea.modules.combine_json_batch import combine_json_batch
+from topcoffea.modules.paths import topcoffea_path
 import re
 
 ########### The XSs from xsec.cfg ###########
-XSECDIC = loadxsecdic("../../topcoffea/cfg/xsec.cfg",True)
+with open(topcoffea_path("params/xsec.yml")) as f:
+    XSECDIC = yaml.load(f,Loader=yaml.CLoader)
 
 ########### Functions for makign the jsons ###########
 

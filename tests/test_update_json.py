@@ -1,5 +1,4 @@
 import os
-import topcoffea.modules.utils
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.update_json import update_json

@@ -197,6 +197,7 @@ def get_environment(
     if extra_pip:
         spec["pip"].extend(extra_pip)
     if extra_pip_local:
+        spec["pip"].extend(extra_pip_local)
         spec_pip_local_to_watch.update(extra_pip_local)
 
     packages_hash = hashlib.sha256(json.dumps(spec).encode()).hexdigest()[0:8]

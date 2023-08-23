@@ -182,6 +182,7 @@ def _clean_cache(cache_size, *current_files):
 def get_environment(
     extra_conda: Optional[List[str]] = None,
     extra_pip: Optional[List[str]] = None,
+    extra_pip_local: Optional[dict[str]] = None,
     force: bool = False,
     unstaged: str = "rebuild",
     cache_size: int = 3,
@@ -190,10 +191,13 @@ def get_environment(
     Path(env_dir_cache).mkdir(parents=True, exist_ok=True)
 
     spec = dict(default_modules)
+    spec_pip_local_to_watch = dict(pip_local_to_watch)
     if extra_conda:
         spec["conda"]["packages"].extend(extra_conda)
     if extra_pip:
         spec["pip"].extend(extra_pip)
+    if extra_pip_local:
+        spec_pip_local_to_watch.update(extra_pip_local)
 
     packages_hash = hashlib.sha256(json.dumps(spec).encode()).hexdigest()[0:8]
     pip_paths = _find_local_pip()

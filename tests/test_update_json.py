@@ -1,8 +1,9 @@
 import os
-import json
+import topcoffea.modules.utils
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.update_json import update_json
+from topcoffea.modules.utils import load_sample_json_file
 
 def test_update_json():
     src_fname = topcoffea_path("params/example_sample_json.json")

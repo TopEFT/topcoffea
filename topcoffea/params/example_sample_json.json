@@ -9,7 +9,7 @@
     "example.root"
   ],
   "nEvents": 999,
-  "nGenEvents":  999
+  "nGenEvents":  999,
   "nSumOfWeights": 999,
   "isData": false,
   "nSumOfWeights_ISRUp": 999,

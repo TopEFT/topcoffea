@@ -69,6 +69,8 @@ def main():
     if not isDAS:
         files_with_prefix = get_files(prefix+path,match_files=["\.root"],recursive=True)
         files = [(f[len(prefix):]) for f in files_with_prefix]
+        if len(files_with_prefix) == 0:
+            raise Exception(f"ERROR: No files found for this path \"{prefix+path}\".")
 
     # Search files in DAS dataset
     #   NOTE: For DAS searches, the is_data flag is determined from DAS itself, not the files
@@ -117,8 +119,10 @@ def main():
             is_data_lst.append(is_data)
 
         # Raise error if there is a mix of data and mc files
+        print("is_data_lst",is_data_lst)
+        print("is_data_set",set(is_data_lst))
         if len(set(is_data_lst)) != 1:
-            raise Exception("Error: There are a mix of files that are data and mc")
+            raise Exception("ERROR: There are a mix of files that are data and mc")
         # Otherwise all are same, so we can take is_data for the full list to be just whatever it is for the first element
         else:
             is_data = is_data_lst[0]

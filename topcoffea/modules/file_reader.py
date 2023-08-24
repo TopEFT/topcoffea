@@ -11,7 +11,7 @@ def get_info(fname, tree_name = "Events"):
     with uproot.open(fname) as f:
         tree = f[tree_name]
         is_data = not "genWeight" in tree
-        
+
         raw_events = int(tree.num_entries)
         if is_data:
             # Data doesn't have gen or weighted events!

@@ -6,7 +6,6 @@ import subprocess
 import os
 import yaml
 from topcoffea.modules.paths import topcoffea_path
-import re
 
 ########### The XSs from xsec.cfg ###########
 with open(topcoffea_path("params/xsec.yml")) as f:

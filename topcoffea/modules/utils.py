@@ -7,6 +7,24 @@ import cloudpickle
 
 pjoin = os.path.join
 
+
+############## Floats manipulations and tools ##############
+
+# Get percent difference
+def get_pdiff(a,b,in_percent=False):
+    #p = (float(a)-float(b))/((float(a)+float(b))/2)
+    if ((a is None) or (b is None)):
+        p = None
+    elif b == 0:
+        p = None
+    else:
+        p = (float(a)-float(b))/float(b)
+        if in_percent:
+            p = p*100.0
+    return p
+
+############## Strings manipulations and tools ##############
+
 # Match strings using one or more regular expressions
 def regex_match(lst,regex_lst):
     # NOTE: For the regex_lst patterns, we use the raw string to generate the regular expression.
@@ -23,6 +41,37 @@ def regex_match(lst,regex_lst):
                 matches.append(s)
                 break
     return matches
+
+# Get a subset of the elements from a list of strings given a whitelist and/or blacklist of substrings
+def filter_lst_of_strs(in_lst,substr_whitelist=[],substr_blacklist=[]):
+
+    # Check all elements are strings
+    if not (all(isinstance(x,str) for x in in_lst) and all(isinstance(x,str) for x in substr_whitelist) and all(isinstance(x,str) for x in substr_blacklist)):
+        raise Exception("Error: This function only filters lists of strings, one of the elements in one of the input lists is not a str.")
+    for elem in substr_whitelist:
+        if elem in substr_blacklist:
+            raise Exception(f"Error: Cannot whitelist and blacklist the same element (\"{elem}\").")
+
+    # Append to the return list
+    out_lst = []
+    for element in in_lst:
+        blacklisted = False
+        whitelisted = True
+        for substr in substr_blacklist:
+            if substr in element:
+                # If any of the substrings are in the element, blacklist it
+                blacklisted = True
+        for substr in substr_whitelist:
+            if substr not in element:
+                # If any of the substrings are NOT in the element, do not whitelist it
+                whitelisted = False
+        if whitelisted and not blacklisted:
+            out_lst.append(element)
+
+    return out_lst
+
+
+############## Files and dirs manipulations and tools ##############
 
 def get_files(top_dir,**kwargs):
     '''
@@ -67,12 +116,14 @@ def get_files(top_dir,**kwargs):
             found.append(fpath)
     return found
 
+
 # Moves a list of files to the specified target directory
 def move_files(files,target):
     width = len(max(files,key=len))
     for src in files:
         dst = os.path.join(target,src)
         os.rename(src,dst)
+
 
 # Removes files from tdir which match any of the regex in targets list
 def clean_dir(tdir,targets,dry_run=False):
@@ -87,6 +138,9 @@ def clean_dir(tdir,targets,dry_run=False):
             os.remove(fpath)
         else:
             print(f"\tRemoving {fpath}")
+
+
+############## Jason and config manipulations and tools ##############
 
 # Read from a sample json file
 def load_sample_json_file(fpath):
@@ -106,6 +160,7 @@ def load_sample_json_file(fpath):
     jsn['nSumOfWeights'] = float(jsn['nSumOfWeights'])
     return jsn
 
+
 # Generate/Update a dictionary for storing info from a cfg file
 def update_cfg(jsn,name,**kwargs):
     cfg = kwargs.pop('cfg',{})
@@ -119,6 +174,7 @@ def update_cfg(jsn,name,**kwargs):
     for k,v in kwargs.items():
         cfg[name][k] = v
     return cfg
+
 
 # Read from a cfg file
 def read_cfg_file(fpath,cfg={},max_files=0):
@@ -147,6 +203,9 @@ def read_cfg_file(fpath,cfg={},max_files=0):
                 cfg = update_cfg(jsn,sample,cfg=cfg,max_files=max_files,redirector=xrd_src)
     return cfg
 
+
+############## Pickle manipulations and tools ##############
+
 # Save to a pkl file
 def dump_to_pkl(out_name,out_file):
     if not out_name.endswith(".pkl.gz"):
@@ -156,12 +215,38 @@ def dump_to_pkl(out_name,out_file):
         cloudpickle.dump(out_file, fout)
     print("Done.\n")
 
+
 # Get the dictionary of hists from the pkl file (e.g. that a processor outputs)
 def get_hist_from_pkl(path_to_pkl,allow_empty=True):
     h = pickle.load( gzip.open(path_to_pkl) )
     if not allow_empty:
         h = {k:v for k,v in h.items() if v.values() != {}}
     return h
+
+
+############## Dictionary manipulations and tools ##############
+
+# Takes two dictionaries, returns the list of lists [common keys, keys unique to d1, keys unique to d2]
+def get_common_keys(dict1,dict2):
+
+    common_lst = []
+    unique_1_lst = []
+    unique_2_lst = []
+
+    # Find common keys, and keys unique to d1
+    for k1 in dict1.keys():
+        if k1 in dict2.keys():
+            common_lst.append(k1)
+        else:
+            unique_1_lst.append(k1)
+
+    # Find keys unique to d2
+    for k2 in dict2.keys():
+        if k2 not in common_lst:
+            unique_2_lst.append(k2)
+
+    return [common_lst,unique_1_lst,unique_2_lst]
+
 
 # Check if the contents of two dictionaries of lists agree
 # Assumes structure d = {k1: [i1,i2,...], ...}
@@ -187,3 +272,96 @@ def dict_comp(in_dict1,in_dict2,strict=False):
         else: print("Warning: "+print_str)
 
     return dicts_match
+
+
+# Takes as input a dictionary {"k": {"subk":[val,err]}} and returns {"k":{"subk":val}}
+def strip_errs(in_dict):
+    out_dict = {}
+    for k in in_dict.keys():
+        out_dict[k] = {}
+        for subk in in_dict[k]:
+            out_dict[k][subk] = in_dict[k][subk][0]
+    return out_dict
+
+
+# Takes as input a dictionary {"k":{"subk":val}} and returns {"k": {"subk":[val,None]}}
+def put_none_errs(in_dict):
+    out_dict = {}
+    for k in in_dict.keys():
+        out_dict[k] = {}
+        for subk in in_dict[k]:
+            out_dict[k][subk] = [in_dict[k][subk],None]
+    return out_dict
+
+
+# Takes yield dicts and prints it
+# Note:
+#   - This function also now optionally takes a tolerance value
+#   - Checks if the differences are larger than that value
+#   - Returns False if any of the values are too large
+#   - Should a different function handle this stuff?
+def print_yld_dicts(ylds_dict,tag,show_errs=False,tolerance=None):
+    ret = True
+    print(f"\n--- {tag} ---\n")
+    for proc in ylds_dict.keys():
+        print(proc)
+        for cat in ylds_dict[proc].keys():
+            print(f"    {cat}")
+            val , err = ylds_dict[proc][cat]
+
+            # We don't want to check if the val is small
+            if tolerance is None:
+                if show_errs:
+                    #print(f"\t{val} +- {err}")
+                    print(f"\t{val} +- {err} -> {err/val}")
+                else:
+                    print(f"\t{val}")
+
+            # We want to check if the val is small
+            else:
+                if (val is None) or (abs(val) < abs(tolerance)):
+                    print(f"\t{val}")
+                else:
+                    print(f"\t{val} -> NOTE: This is larger than tolerance ({tolerance})!")
+                    ret = False
+    return ret
+
+
+# Get the difference between values in nested dictionary, currently can get either percent diff, or absolute diff
+# Returns a dictionary in the same format (currently does not propagate errors, just returns None)
+#   dict = {
+#       k : {
+#           subk : (val,err)
+#       }
+#   }
+# Note: This function makes use of utils.get_common_keys and utils.get_pdiff
+def get_diff_between_nested_dicts(dict1,dict2,difftype,inpercent=False):
+
+    # Get list of keys common to both dictionaries
+    common_keys, d1_keys, d2_keys = get_common_keys(dict1,dict2)
+    if len(d1_keys+d2_keys) > 0:
+        print(f"\nWARNING, keys {d1_keys+d2_keys} are not in both dictionaries.")
+
+    ret_dict = {}
+    for k in common_keys:
+
+        ret_dict[k] = {}
+
+        # Get list of sub keys common to both sub dictionaries
+        common_subkeys, d1_subkeys, d2_subkeys = get_common_keys(dict1[k],dict2[k])
+        if len(d1_subkeys+d2_subkeys) > 0:
+            print(f"\tWARNING, sub keys {d1_subkeys+d2_subkeys} are not in both dictionaries.")
+
+        for subk in common_subkeys:
+            v1,e1 = dict1[k][subk]
+            v2,e1 = dict2[k][subk]
+            if difftype == "percent_diff":
+                ret_diff = get_pdiff(v1,v2,in_percent=inpercent)
+            elif difftype == "absolute_diff":
+                ret_diff = v1 - v2
+            else:
+                raise Exception(f"Unknown diff type: {difftype}. Exiting...")
+
+            ret_dict[k][subk] = (ret_diff,None)
+
+    return ret_dict

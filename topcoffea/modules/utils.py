@@ -4,6 +4,7 @@ import json
 import gzip
 import pickle
 import cloudpickle
+import uproot
 
 pjoin = os.path.join
 

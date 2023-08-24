@@ -54,14 +54,17 @@ def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,o
     das_flag = ""
     if on_das: das_flag = "--DAS"
 
+    path_to_createJSON = topcoffea_path("modules/createJSON.py")
+    path_to_xsecs = topcoffea_path("params/xsec.yml")
+
     args = [
         "python",
-        "../../topcoffea/modules/createJSON.py",
+        path_to_createJSON,
         sample_dir,
         das_flag,
         "--sampleName"   , sample_name,
         "--prefix"       , prefix,
-        "--xsec"         , "../../topcoffea/cfg/xsec.cfg",
+        "--xsec"         , path_to_xsecs,
         "--year"         , sample_yr,
         "--histAxisName" , hist_axis_name,
     ]

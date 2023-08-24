@@ -166,6 +166,9 @@ def get_list_of_wc_names(fname):
             if not wc_fragment.startswith("-"):
                 wc_names_lst.append(wc_fragment)
             else:
+                leftover = wc_fragment[1:]                    # This leftover part of the WC goes with the previous one (but get rid of leading '-')
+                wc_names_lst[-1] = wc_names_lst[-1]+leftover  # So append this trailing fragment to the leading framgenet to reconstruct the WC name
+    return wc_names_lst
 
 
 # Moves a list of files to the specified target directory

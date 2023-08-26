@@ -7,6 +7,7 @@ import awkward as ak
 import numpy as np
 
 from itertools import chain, product, repeat
+from collections import namedtuple
 
 from typing import Mapping, Union, Sequence
 
@@ -24,7 +25,10 @@ class SparseHist(hist.Hist, family=hist):
 
         categorical_axes, dense_axes = self._check_args(axes)
 
-        self._dense_hists: dict[tuple, hist.Hist] = {}
+        self._tuple_t = namedtuple(
+            f"SparseHistTuple{id(self)}", [a.name for a in categorical_axes]
+        )
+        self._dense_hists: dict[self._tuple_t, hist.Hist] = {}
 
         # we use self to keep track of the bins in the categorical axes.
         super().__init__(*categorical_axes, storage="Double")
@@ -89,36 +93,22 @@ class SparseHist(hist.Hist, family=hist):
         nocats = {axis.name: axes[axis.name] for axis in self._dense_axes}
         return (cats, nocats)
 
-    def _cats_as_dict(self, values):
-        return dict(zip(self.categorical_axes.name, values))
+    def _tuple(self, args):
+        args = list(args)
+        return self._tuple_t(*args)
 
-    def categories_to_index(
-        self, bins: Union[Sequence, Mapping], collapsed=None, as_dict=False
-    ):
-        if collapsed is None:
-            collapsed = repeat(False)
-        t = tuple(
-            axis.index(bin)
-            for axis, bin, mask in zip(self.categorical_axes, bins, collapsed)
-            if not mask
-        )
-        if as_dict:
-            return self._cats_as_dict(t)
-        else:
-            return t
+    def _collapse_tuple(self, other, collapsed):
+        return self._tuple(o for o, mask in zip(other, collapsed) if not mask)
 
-    def index_to_categories(self, indices: Sequence, collapsed=None, as_dict=None):
-        if collapsed is None:
-            collapsed = repeat(False)
-        t = tuple(
-            axis[index]
-            for index, axis, mask in zip(indices, self.categorical_axes, collapsed)
-            if not mask
+    def categories_to_index(self, bins: Union[Sequence, Mapping]):
+        return self._tuple(
+            axis.index(bin) for axis, bin in zip(self.categorical_axes, bins)
         )
-        if as_dict:
-            return self._cats_as_dict(t)
-        else:
-            return t
+
+    def index_to_categories(self, indices: Sequence):
+        return self._tuple(
+            axis[index] for index, axis in zip(indices, self.categorical_axes)
+        )
 
     @property
     def categorical_axes(self):
@@ -128,26 +118,25 @@ class SparseHist(hist.Hist, family=hist):
     def dense_axes(self):
         return self._dense_axes
 
-    def categorical_keys(self, as_dict=False):
+    def categorical_keys(self):
         for indices in self._dense_hists:
-            key = self.index_to_categories(indices)
-            if as_dict:
-                key = self._cats_as_dict(key)
-            yield key
+            yield self.index_to_categories(indices)
 
     def _fill_bookkeep(self, *args):
         super().fill(*args)
-        sparse_key = self.categories_to_index(args)
-        if sparse_key not in self._dense_hists:
+        index_key = self.categories_to_index(args)
+        if index_key not in self._dense_hists:
             h = self.make_dense(*self._dense_axes)
-            self._dense_hists[sparse_key] = h
-        return self._dense_hists[sparse_key]
+            self._dense_hists[index_key] = h
+        return index_key
 
     def fill(self, weight=None, sample=None, threads=None, **kwargs):
         cats, nocats = self._split_axes(kwargs)
 
         # fill the bookkeeping first, so that the index of the key exists.
-        h = self._fill_bookkeep(*list(cats.values()))
+        index_key = self._fill_bookkeep(*list(cats.values()))
+        h = self._dense_hists[index_key]
+
         return h.fill(weight=weight, sample=sample, threads=threads, **nocats)
 
     def _to_bin(self, cat_name, value, offset=0):
@@ -229,10 +218,10 @@ class SparseHist(hist.Hist, family=hist):
             categorical_axes=categorical_axes, dense_axes=dense_axes
         )
         for index_key, dense_hist in hists.items():
-            named_key = self.index_to_categories(index_key, collapsed)
-            new_hist._fill_bookkeep(*named_key)
-            index_key = new_hist.categories_to_index(named_key)
-            new_hist._dense_hists[index_key] += dense_hist
+            named_key = self.index_to_categories(index_key)
+            new_named = new_hist._collapse_tuple(named_key, collapsed)
+            new_index = new_hist._fill_bookkeep(*new_named)
+            new_hist._dense_hists[new_index] += dense_hist
         return new_hist
 
     def _from_hists_no_dense(
@@ -369,7 +358,7 @@ class SparseHist(hist.Hist, family=hist):
             filtered = self._filter_dense(old_key)
 
             for old_index, dense in filtered.items():
-                new_key = self.index_to_categories(old_index, as_dict=True)
+                new_key = self.index_to_categories(old_index)._asdict()
                 new_key[axis_name] = target
                 new_index = hnew.categories_to_index(new_key.values())
 
@@ -442,7 +431,7 @@ class SparseHist(hist.Hist, family=hist):
                 list(self.categorical_axes),
                 list(self.dense_axes),
                 self._init_args,
-                self._dense_hists,
+                {tuple(k): h for k, h in self._dense_hists.items()},  # convert to regular tuples for pickle
             ),
         )
 
@@ -451,7 +440,7 @@ class SparseHist(hist.Hist, family=hist):
         hnew = cls(*cat_axes, *dense_axes, **init_args)
         for k, h in dense_hists.items():
             hnew._fill_bookkeep(*hnew.index_to_categories(k))
-            hnew._dense_hists[k] = h
+            hnew._dense_hists[hnew._tuple(k)] = h
         return hnew
 
     def __iadd__(self, other):

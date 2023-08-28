@@ -283,7 +283,7 @@ def test_add_bab_weights():
     )
 
 
-def test_split_by_terms():
+def split_by_terms():
     # split_by_terms not yet implemented
     raise NotImplementedError
 

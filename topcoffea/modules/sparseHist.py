@@ -180,7 +180,9 @@ class SparseHist(hist.Hist, family=hist):
                     raise ValueError(
                         f"Incorrect dimensions were specified. '{k}' is not a known axes."
                     )
-        elif isinstance(key, Sequence):
+        else:
+            if not isinstance(key, tuple):
+                key = (key,)
             if len(key) == len(self.categorical_axes):
                 # assume just the name of the categories
                 index_key = dict(zip(self.categorical_axes.name, key))
@@ -192,8 +194,6 @@ class SparseHist(hist.Hist, family=hist):
                 raise ValueError(
                     f"Incorrect dimensions were specified. Got {len(key)} values but expected {len(self.axes)}."
                 )
-        else:
-            raise ValueError("Index should be a mapping or a tuple.")
 
         for a in self.categorical_axes:
             index_key[a.name] = self._to_bin(a.name, index_key[a.name])

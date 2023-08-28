@@ -93,20 +93,18 @@ class SparseHist(hist.Hist, family=hist):
         nocats = {axis.name: axes[axis.name] for axis in self._dense_axes}
         return (cats, nocats)
 
-    def _tuple(self, args):
-        args = list(args)
+    def _make_tuple(self, other, mask=None):
+        if mask is None:
+            args = list(other)
+        else:
+            args = [o for o, m in zip(other, mask) if m]
         return self._tuple_t(*args)
 
-    def _collapse_tuple(self, other, collapsed):
-        return self._tuple(o for o, mask in zip(other, collapsed) if not mask)
-
     def categories_to_index(self, bins: Union[Sequence, Mapping]):
-        return self._tuple(
-            axis.index(bin) for axis, bin in zip(self.categorical_axes, bins)
-        )
+        return tuple(axis.index(bin) for axis, bin in zip(self.categorical_axes, bins))
 
     def index_to_categories(self, indices: Sequence):
-        return self._tuple(
+        return self._make_tuple(
             axis[index] for index, axis in zip(indices, self.categorical_axes)
         )
 
@@ -204,13 +202,14 @@ class SparseHist(hist.Hist, family=hist):
         self,
         hists: dict,
         categorical_axes: list,
-        collapsed: Union[None, Sequence] = None,
+        included_axes: Union[None, Sequence] = None,
     ):
         """Construct a sparse hist from a dictionary of dense histograms.
         hists: a dictionary of dense histograms.
         categorical_axes: axes to use for the new histogram.
-        collapsed: mask that indicates which sparse keys disappear from the indices of hists.
-                  (I.e., the new categorical_axes correspond to False values in collapsed.
+        included_axes: mask that indicates which category axes are present in the new histogram.
+                  (I.e., the new categorical_axes correspond to True values in included_axes. Axes with False collapsed
+                   because of integration, etc.)
         """
         dense_axes = list(hists.values())[0].axes
 
@@ -219,7 +218,7 @@ class SparseHist(hist.Hist, family=hist):
         )
         for index_key, dense_hist in hists.items():
             named_key = self.index_to_categories(index_key)
-            new_named = new_hist._collapse_tuple(named_key, collapsed)
+            new_named = new_hist._make_tuple(named_key, included_axes)
             new_index = new_hist._fill_bookkeep(*new_named)
             new_hist._dense_hists[new_index] += dense_hist
         return new_hist
@@ -228,12 +227,11 @@ class SparseHist(hist.Hist, family=hist):
         self,
         hists: dict,
         categorical_axes: list,
-        collapsed: Union[None, Sequence] = None,
     ):
         """Construct a hist.Hist from a dictionary of histograms where all the dense axes have collapsed."""
         new_hist = hist.Hist(*categorical_axes, **self._init_args)
         for index_key, weight in hists.items():
-            named_key = self.index_to_categories(index_key, collapsed)
+            named_key = ()
             new_hist.fill(*named_key, weight=weight)
         return new_hist
 
@@ -261,14 +259,14 @@ class SparseHist(hist.Hist, family=hist):
         index_key = self._make_index_key(key)
         filtered = self._filter_dense(index_key)
 
-        collapsed = [
-            index_key[name] is sum or isinstance(index_key[name], int)
+        preserve = [
+            not(index_key[name] is sum or isinstance(index_key[name], int))
             for name in self.categorical_axes.name
         ]
         new_cats = [
             type(axis)([], growth=True, name=axis.name, label=axis.label)
-            for axis, mask in zip(self.categorical_axes, collapsed)
-            if not mask
+            for axis, mask in zip(self.categorical_axes, preserve)
+            if mask
         ]
 
         if len(filtered) == 0:
@@ -281,9 +279,9 @@ class SparseHist(hist.Hist, family=hist):
                 return first
             else:
                 # dense axes have collapsed to a single value
-                return self._from_hists_no_dense(filtered, new_cats, collapsed)
+                return self._from_hists_no_dense(filtered, new_cats)
         else:
-            return self._from_hists(filtered, new_cats, collapsed)
+            return self._from_hists(filtered, new_cats, preserve)
 
     def _ak_rec_op(self, op_on_dense):
         if len(self.categorical_axes) == 0:
@@ -431,7 +429,7 @@ class SparseHist(hist.Hist, family=hist):
                 list(self.categorical_axes),
                 list(self.dense_axes),
                 self._init_args,
-                {tuple(k): h for k, h in self._dense_hists.items()},  # convert to regular tuples for pickle
+                self._dense_hists,
             ),
         )
 
@@ -440,7 +438,7 @@ class SparseHist(hist.Hist, family=hist):
         hnew = cls(*cat_axes, *dense_axes, **init_args)
         for k, h in dense_hists.items():
             hnew._fill_bookkeep(*hnew.index_to_categories(k))
-            hnew._dense_hists[hnew._tuple(k)] = h
+            hnew._dense_hists[k] = h
         return hnew
 
     def __iadd__(self, other):

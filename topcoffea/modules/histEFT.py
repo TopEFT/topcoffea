@@ -132,6 +132,7 @@ class HistEFT(SparseHist, family=_family):
             categorical_axes, dense_axes, **self._init_args_eft, **kwargs
         )
 
+    @property
     def wc_names(self):
         return list(self._wc_names)
 

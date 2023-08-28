@@ -116,6 +116,7 @@ class SparseHist(hist.Hist, family=hist):
     def dense_axes(self):
         return self._dense_axes
 
+    @property
     def categorical_keys(self):
         for indices in self._dense_hists:
             yield self.index_to_categories(indices)

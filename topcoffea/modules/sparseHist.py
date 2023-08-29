@@ -236,6 +236,20 @@ class SparseHist(hist.Hist, family=hist):
             new_hist.fill(*named_key, weight=weight)
         return new_hist
 
+    def _from_no_bins_found(self, index_key, cat_axes):
+        # If no bins are found, we need to check whether those bins would be present in a completely dense histogram.
+        # If so, we return either the zero value for that histogram, or an empty histogram without the collapsed axes.
+        dummy_zeros = hist.Hist(*self.dense_axes, storage=self._init_args.get('storage', None))
+        try:
+            sliced_zeros = dummy_zeros[{a.name: index_key[a.name] for a in self.dense_axes}]
+        except KeyError:
+            raise KeyError("No bins found")
+
+        if isinstance(sliced_zeros, hist.Hist):
+            return self.empty_from_axes(categorical_axes=cat_axes, dense_axes=sliced_zeros.axes)
+        else:
+            return sliced_zeros
+
     def _filter_dense(self, index_key):
         def asseq(cat_name, x):
             if isinstance(x, int):
@@ -271,7 +285,7 @@ class SparseHist(hist.Hist, family=hist):
         ]
 
         if len(filtered) == 0:
-            raise KeyError("No bins found.")
+            return self._from_no_bins_found(index_key, new_cats)
 
         first = list(filtered.values())[0]
         if not isinstance(first, hist.Hist):

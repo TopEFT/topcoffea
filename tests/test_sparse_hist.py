@@ -160,3 +160,24 @@ def test_pickle():
     h2 = pickle.loads(x)
 
     assert ak.all(h.values(flow=True) == h2.values(flow=True))
+
+
+def test_assignment():
+    h = make_hist()
+    hs = h * 2
+    h2 = h.empty_from_axes()
+
+    for k, vs in h.view(as_dict=True, flow=True).items():
+        h2[k] = vs + vs
+
+    assert np.all(np.abs(hs.values(flow=True) - h2.values(flow=True) < 1e-10))
+
+    # same as above but one bin at a time
+    h2b = h.empty_from_axes()
+    for k, vs in h.view(as_dict=True, flow=False).items():
+        for i, v in enumerate(vs):
+            h2b[(*k, i)] = v + v
+        h2b[(*k, hist.underflow)] = h[(*k, hist.underflow)]
+        h2b[(*k, hist.overflow)] = h[(*k, hist.overflow)]
+
+    assert np.all(np.abs(hs.values(flow=True) - h2b.values(flow=True) < 1e-10))

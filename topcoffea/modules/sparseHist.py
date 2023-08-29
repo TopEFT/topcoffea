@@ -250,7 +250,7 @@ class SparseHist(hist.Hist, family=hist):
         else:
             return sliced_zeros
 
-    def _filter_dense(self, index_key):
+    def _filter_dense(self, index_key, filter_dense=True):
         def asseq(cat_name, x):
             if isinstance(x, int):
                 return range(x, x + 1)
@@ -265,10 +265,33 @@ class SparseHist(hist.Hist, family=hist):
         filtered = {}
         for sparse_key in product(*(asseq(name, v) for name, v in cats.items())):
             if sparse_key in self._dense_hists:
-                filtered[sparse_key] = self._dense_hists[sparse_key][
-                    tuple(nocats.values())
-                ]
+                filtered[sparse_key] = self._dense_hists[sparse_key]
+                if filter_dense:
+                    filtered[sparse_key] = filtered[sparse_key][tuple(nocats.values())]
         return filtered
+
+    def __setitem__(self, key, value):
+        index_key = self._make_index_key(key)
+        cats, nocats = self._split_axes(index_key)
+        filtered = self._filter_dense(index_key, filter_dense=False)
+
+        if len(filtered) > 1:
+            raise ValueError("Cannot assign to more than one set of categorical keys at a time.")
+
+        new_hist = False
+        if len(filtered) == 0:
+            cat_index = self._fill_bookkeep(*self.index_to_categories(cats.values()))
+            h = self._dense_hists[cat_index]
+            new_hist = True
+        else:
+            h = list(filtered.values())[0]
+
+        try:
+            h[nocats] = value
+        except Exception as e:
+            if new_hist:
+                del self._dense_hists[cat_index]
+            raise e
 
     def __getitem__(self, key):
         index_key = self._make_index_key(key)

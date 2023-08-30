@@ -1,4 +1,3 @@
-import numpy as np
 import awkward as ak
 import hist
 from topcoffea.modules.histEFT import HistEFT

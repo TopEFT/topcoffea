@@ -6,7 +6,7 @@ import boost_histogram as bh
 import awkward as ak
 import numpy as np
 
-from itertools import chain, product, repeat
+from itertools import chain, product
 from collections import namedtuple
 
 from typing import Mapping, Union, Sequence
@@ -298,7 +298,7 @@ class SparseHist(hist.Hist, family=hist):
         filtered = self._filter_dense(index_key)
 
         preserve = [
-            not(index_key[name] is sum or isinstance(index_key[name], int))
+            not (index_key[name] is sum or isinstance(index_key[name], int))
             for name in self.categorical_axes.name
         ]
         new_cats = [

@@ -4,9 +4,7 @@ import hist
 import boost_histogram as bh
 import numpy as np
 
-from itertools import product, chain
-
-from typing import Any, Dict, List, Mapping, Union
+from typing import Any, List, Mapping, Union
 
 from topcoffea.modules.sparseHist import SparseHist
 import topcoffea.modules.eft_helper as efth
@@ -194,9 +192,7 @@ class HistEFT(SparseHist, family=_family):
         # into:
         # [0, 1, 2, ..., 0, 1, 2 ...,]
         # repeated n_events times.
-        return np.broadcast_to(
-            np.ogrid[0 : self._quad_count], (n_events, self._quad_count)
-        ).ravel()
+        return np.broadcast_to(np.ogrid[0: self._quad_count], (n_events, self._quad_count)).ravel()
 
     def fill(
         self,

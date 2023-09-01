@@ -28,9 +28,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Set up Python 3.9.6
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9.6
+
       - name: Test just pip
         run: |
-          python3 -m pip install -e . --user
+          python -m pip install --upgrade pip
+          pip install -e . --user
           pytest
 
       - name: Add conda to system path

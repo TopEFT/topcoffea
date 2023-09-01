@@ -30,7 +30,7 @@ jobs:
 
       - name: Test just pip
         run: |
-          pip install -e . --user
+          python3 -m pip install -e . --user
           pytest
 
       - name: Add conda to system path

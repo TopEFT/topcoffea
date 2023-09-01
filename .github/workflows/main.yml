@@ -28,6 +28,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Test just pip
+        run: |
+          conda pip install -e .
+          pytest
+
       - name: Add conda to system path
         run: |
           echo $CONDA/bin >> $GITHUB_PATH

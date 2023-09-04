@@ -776,5 +776,5 @@ class HistEFT(coffea.hist.Hist):
         else:
             raise TypeError("Could not interpret scale factor")
 
-    def empty():
+    def empty(self):
         return not self._sumw

@@ -28,34 +28,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - uses: mamba-org/setup-micromamba@v1
+      - uses: micromamba-org/setup-micromicromamba@v1
         with:
           environment-file: environment.yml
           environment-name: topcoffea-env
 
       - name: Conda list
         run: |
-          mamba list -n topcoffea-env
+          micromamba list -n topcoffea-env
 
       - name: Install pip packages
         run: |
-          mamba run -n topcoffea-env pip install -e .
+          micromamba run -n topcoffea-env pip install -e .
 
       - name: Pytest setup
         run: |
-          mamba install -y -n topcoffea-env -c mamba-forge pytest
+          micromamba install -y -n topcoffea-env -c micromamba-forge pytest
 
       - name: Test update json
         run: |
-          mamba run -n topcoffea-env pytest tests/test_update_json.py
+          micromamba run -n topcoffea-env pytest tests/test_update_json.py
 
       - name: Test HistEFT unit test
         run: |
-          mamba run -n topcoffea-env pytest tests/test_unit.py
+          micromamba run -n topcoffea-env pytest tests/test_unit.py
 
       - name: Test histEFT
         run: |
-          mamba run -n topcoffea-env pytest tests/test_HistEFT_add.py
+          micromamba run -n topcoffea-env pytest tests/test_HistEFT_add.py
 
 
   Check-topcoffea:

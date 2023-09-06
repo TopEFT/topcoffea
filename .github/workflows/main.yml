@@ -35,27 +35,27 @@ jobs:
 
       - name: Conda list
         run: |
-          conda list -n topcoffea-env
+          mamba list -n topcoffea-env
 
       - name: Install pip packages
         run: |
-          conda run -n topcoffea-env pip install -e .
+          mamba run -n topcoffea-env pip install -e .
 
       - name: Pytest setup
         run: |
-          conda install -y -n topcoffea-env -c conda-forge pytest
+          mamba install -y -n topcoffea-env -c mamba-forge pytest
 
       - name: Test update json
         run: |
-          conda run -n topcoffea-env pytest tests/test_update_json.py
+          mamba run -n topcoffea-env pytest tests/test_update_json.py
 
       - name: Test HistEFT unit test
         run: |
-          conda run -n topcoffea-env pytest tests/test_unit.py
+          mamba run -n topcoffea-env pytest tests/test_unit.py
 
       - name: Test histEFT
         run: |
-          conda run -n topcoffea-env pytest tests/test_HistEFT_add.py
+          mamba run -n topcoffea-env pytest tests/test_HistEFT_add.py
 
 
   Check-topcoffea:

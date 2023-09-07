@@ -32,10 +32,12 @@ jobs:
         with:
           environment-file: environment.yml
           environment-name: topcoffea-env
-          init-shell: >-
-            bash
 
       - name: Conda list
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          init-shell: >-
+            bash
         run: |
           micromamba list -n topcoffea-env
 
@@ -45,7 +47,7 @@ jobs:
 
       - name: Pytest setup
         run: |
-          micromamba install -y -n topcoffea-env -c micromamba-forge pytest
+          micromamba install -y -n topcoffea-env -c conda-forge pytest
 
       - name: Test update json
         run: |

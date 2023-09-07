@@ -34,7 +34,6 @@ jobs:
           environment-name: topcoffea-env
 
       - name: Conda list
-        uses: mamba-org/setup-micromamba@v1
         with:
           init-shell: >-
             bash

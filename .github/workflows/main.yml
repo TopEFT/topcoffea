@@ -32,8 +32,8 @@ jobs:
         with:
           environment-file: environment.yml
           environment-name: topcoffea-env
-        init-shell: >-
-          bash
+          init-shell: >-
+            bash
 
       - name: Conda list
         run: |

@@ -32,13 +32,13 @@ jobs:
         with:
           environment-file: environment.yml
           environment-name: topcoffea-env
+          init-shell: >-
+                bash
 
       - name: Install pip packages
         run: |
           pip install -e .
         shell: micromamba-shell {0}
-
-      - uses: mamba-org/setup-micromamba@v1
 
       - name: Pytest setup
         run: |

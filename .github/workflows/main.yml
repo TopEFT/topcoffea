@@ -32,11 +32,9 @@ jobs:
         with:
           environment-file: environment.yml
           environment-name: topcoffea-env
-
-      - uses: mamba-org/setup-micromamba@v1
-        with:
-          init-shell: >-
-            bash
+      - run: |
+          micromamba info | grep -q "environment : env-name"
+        shell: bash -el {0}
 
       - name: Conda list
         run: |

@@ -32,17 +32,11 @@ jobs:
         with:
           environment-file: environment.yml
           environment-name: topcoffea-env
-      - run: |
-          micromamba info | grep -q "environment : env-name"
-        shell: micromamba-shell {0}
-
-      - name: Conda list
-        run: |
-          micromamba list -n topcoffea-env
 
       - name: Install pip packages
         run: |
-          micromamba run -n topcoffea-env pip install -e .
+          pip install -e .
+        shell: micromamba-shell {0}
 
       - name: Pytest setup
         run: |

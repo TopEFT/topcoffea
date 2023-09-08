@@ -34,7 +34,7 @@ jobs:
           environment-name: topcoffea-env
       - run: |
           micromamba info | grep -q "environment : env-name"
-        shell: bash -el {0}
+        shell: micromamba-shell {0}
 
       - name: Conda list
         run: |

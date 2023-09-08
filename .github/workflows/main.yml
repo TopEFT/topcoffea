@@ -42,7 +42,7 @@ jobs:
 
       - name: Pytest setup
         run: |
-          micromba install -y -n topcoffea-env -c conda-forge pytest
+          micromamba install -y -n topcoffea-env -c conda-forge pytest
         shell: micromamba-shell {0}
 
       - name: Test update json

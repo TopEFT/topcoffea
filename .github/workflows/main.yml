@@ -32,6 +32,11 @@ jobs:
         run: |
           echo $CONDA/bin >> $GITHUB_PATH
 
+      - name: Set Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 10
+          
       - name: Install dependencies
         timeout-minutes: 30
         run: |

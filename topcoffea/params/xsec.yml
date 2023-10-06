@@ -120,6 +120,9 @@ TWZToLL_thad_Wlept  : 0.003004
 TWZToLL_tlept_Whad  : 0.003004
 TWZToLL_tlept_Wlept : 0.0015
 
+# Number from CMS AN-19-144
+tWll : 0.01123
+
 # Numbers from https://github.com/cmstas/VVVNanoLooper/blob/master/weights/xsec.txt
 VHnobb : 0.952
 SSWW   : 0.02794

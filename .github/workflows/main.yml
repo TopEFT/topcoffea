@@ -38,7 +38,6 @@ jobs:
           swap-size-gb: 10
           
       - name: Install dependencies
-        timeout-minutes: 30
         run: |
           conda config --set channel_priority strict
           conda config --add channels conda-forge

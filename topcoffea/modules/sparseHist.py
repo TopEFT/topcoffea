@@ -287,10 +287,7 @@ class SparseHist(hist.Hist, family=hist):
             h = list(filtered.values())[0]
 
         try:
-            if new_hist:
-                h[nocats] = value
-            else:
-                h[nocats] = h[nocats].values() + value.values()
+            h[nocats] = h[nocats].values()
         except Exception as e:
             if new_hist:
                 del self._dense_hists[cat_index]

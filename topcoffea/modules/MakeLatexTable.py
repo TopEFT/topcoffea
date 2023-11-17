@@ -29,11 +29,14 @@ def print_end():
     print("\n")
 
 # Print the body of the latex table
-def print_table(vals_dict,key_order,subkey_order,caption_text,print_errs,columns,hz_line_lst):
+def print_table(vals_dict,key_order,subkey_order,caption_text,print_errs,columns,hz_line_lst,small):
     print("\\begin{table}[hbtp!]")
+    print("\\centering")
     print("\\setlength\\tabcolsep{5pt}")
     print(f"\\caption{{{caption_text}}}") # Need to escape the "{" with another "{"
     print("\\smallskip")
+    if small:
+        print("\\footnotesize")
 
     # Print subkeys as columns
     if columns == "subkeys":
@@ -52,7 +55,7 @@ def print_table(vals_dict,key_order,subkey_order,caption_text,print_errs,columns
                     val , err = vals_dict[key][subkey]
                     if val is not None: val = round(val,2)
                     if err is not None: err = round(err,2)
-                    if print_errs:
+                    if print_errs and (err is not None):
                         print("&",val,"$\pm$",err,end=' ')
                     else:
                         print("&",val,end=' ')
@@ -74,7 +77,7 @@ def print_table(vals_dict,key_order,subkey_order,caption_text,print_errs,columns
                     val , err = vals_dict[key][subkey]
                     if val is not None: val = round(val,2)
                     if err is not None: err = round(err,2)
-                    if print_errs:
+                    if print_errs and (err is not None):
                         print("&",val,"$\pm$",err,end=' ')
                     else:
                         print("&",val,end=' ')
@@ -90,7 +93,7 @@ def print_table(vals_dict,key_order,subkey_order,caption_text,print_errs,columns
     print("\\end{table}")
 
 # Wrapper function for printing a table
-def print_latex_yield_table(vals_dict,key_order=None,subkey_order=None,tag="",print_begin_info=False,print_end_info=False,print_errs=False,column_variable="subkeys",hz_line_lst=[None]):
+def print_latex_yield_table(vals_dict,key_order=None,subkey_order=None,tag="",print_begin_info=False,print_end_info=False,print_errs=False,column_variable="subkeys",hz_line_lst=[None],small=False):
 
     # If order for columns and rows not specified, just use the keys of the dict:
     if key_order is None:
@@ -102,6 +105,6 @@ def print_latex_yield_table(vals_dict,key_order=None,subkey_order=None,tag="",pr
 
     # Print the table
     if print_begin_info: print_begin()
-    print_table(vals_dict,key_order,subkey_order,tag,print_errs,columns=column_variable,hz_line_lst=hz_line_lst)
+    print_table(vals_dict,key_order,subkey_order,tag,print_errs,columns=column_variable,hz_line_lst=hz_line_lst,small=small)
     if print_end_info: print_end()
 

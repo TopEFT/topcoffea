@@ -91,7 +91,7 @@ ZZTo2Q2Nu               : 4.04
 ZZTo4L                  : 1.256
 
 ggToZHToHToWWTo2L2Nu    : 0.00275
-ggToZHToZTo2L           : 0.0018639
+qqToZHToZTo2L           : 0.0018639
 
 WWW                     : 0.2086
 WWZ                     : 0.1651
@@ -119,6 +119,9 @@ ttWW                    : 0.006977
 TWZToLL_thad_Wlept  : 0.003004
 TWZToLL_tlept_Whad  : 0.003004
 TWZToLL_tlept_Wlept : 0.0015
+
+# Number from CMS AN-19-144
+tWll : 0.01123
 
 # Numbers from https://github.com/cmstas/VVVNanoLooper/blob/master/weights/xsec.txt
 VHnobb : 0.952

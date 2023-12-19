@@ -1,6 +1,5 @@
 # Event selection functions
 
-import numpy as np
 import awkward as ak
 
 # This is a helper function called by trg_pass_no_overlap

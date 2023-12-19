@@ -1,4 +1,5 @@
 import awkward as ak
+import dask_awkward as dak
 import correctionlib
 
 from topcoffea.modules.paths import topcoffea_path
@@ -29,17 +30,23 @@ def btag_sf_eval(jet_collection,wp,year,method,syst):
     else:
         raise Exception(f"Not a known year: {year}")
 
-    # Flatten the input (until correctionlib handles jagged data natively)
-    abseta_flat = ak.flatten(abs(jet_collection.eta))
-    pt_flat = ak.flatten(jet_collection.pt)
-    flav_flat = ak.flatten(jet_collection.hadronFlavour)
+    abseta = abs(jet_collection.eta)
+    pt = jet_collection.pt
+    flav = jet_collection.hadronFlavour
 
     # For now, cap all pt at 1000 https://cms-talk.web.cern.ch/t/question-about-evaluating-sfs-with-correctionlib/31763
-    pt_flat = ak.where(pt_flat>1000.0,1000.0,pt_flat)
+    pt = ak.where(pt>1000.0,1000.0,pt)
 
     # Evaluate the SF
     ceval = correctionlib.CorrectionSet.from_file(fname)
-    sf_flat = ceval[method].evaluate(syst,wp,flav_flat,abseta_flat,pt_flat)
-    sf = ak.unflatten(sf_flat,ak.num(jet_collection.pt))
+
+    sf = dak.map_partitions(
+        ceval[method].evaluate,
+        syst,
+        wp,
+        flav,
+        abseta,
+        pt,
+    )
 
     return sf

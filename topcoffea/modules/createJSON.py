@@ -130,8 +130,6 @@ def main():
                     n_sum_of_lhe_weights[i] += i_sum_of_lhe_weights[i]
 
         # Raise error if there is a mix of data and mc files
-        print("is_data_lst",is_data_lst)
-        print("is_data_set",set(is_data_lst))
         if len(set(is_data_lst)) != 1:
             raise Exception("ERROR: There are a mix of files that are data and mc")
         # Otherwise all are same, so we can take is_data for the full list to be just whatever it is for the first element

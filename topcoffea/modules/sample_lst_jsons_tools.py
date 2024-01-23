@@ -47,11 +47,13 @@ def replace_xsec_for_dict_of_samples(samples_dict,out_dir):
         replace_val_in_json(path_to_json,"xsec",new_xsec)
 
 # Wrapper for createJSON.py
-def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,on_das=False):
+def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,on_das=False,include_lhe_wgts_arr=False):
 
     # If the sample is on DAS, inclue the DAS flag in the createJSON.py arguments
     das_flag = ""
+    include_lhe_wgts_arr_flag = ""
     if on_das: das_flag = "--DAS"
+    if include_lhe_wgts_arr: include_lhe_wgts_arr_flag = "--includeLheWgts"
 
     path_to_createJSON = topcoffea_path("modules/createJSON.py")
     path_to_xsecs = topcoffea_path("params/xsec.yml")
@@ -61,6 +63,7 @@ def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,o
         path_to_createJSON,
         sample_dir,
         das_flag,
+        include_lhe_wgts_arr_flag,
         "--sampleName"   , sample_name,
         "--prefix"       , prefix,
         "--xsec"         , path_to_xsecs,

@@ -144,7 +144,13 @@ def get_info(fname, tree_name = "Events"):
                 sow_key = "genEventSumw"  if "genEventSumw"  in runs else "genEventSumw_"
                 gen_events = sum(runs[gen_key].array())
                 sow_events = sum(runs[sow_key].array())
-    return [raw_events, gen_events, sow_events, is_data]
+
+                # Get the LHE weights array (note it's stored as a ratio, so multiply by sow before summing)
+                sow_arr = runs[sow_key].array()
+                LHEScaleSumw_arr = runs["LHEScaleSumw"].array()
+                sow_lhe_wgts = sum(sow_arr*LHEScaleSumw_arr)
+
+    return [raw_events, gen_events, sow_events, sow_lhe_wgts, is_data]
 
 
 # Get the list of WC names from an EFT sample naod root file

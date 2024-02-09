@@ -425,7 +425,7 @@ def get_diff_between_dicts(dict1,dict2,difftype,inpercent=False):
     # Get list of sub keys common to both sub dictionaries
     common_keys, d1_keys, d2_keys = get_common_keys(dict1,dict2)
     if len(d1_keys+d2_keys) > 0:
-        print(f"\tWARNING, sub keys {d1_subkeys+d2_subkeys} are not in both dictionaries.")
+        print(f"\tWARNING, sub keys {d1_keys+d2_keys} are not in both dictionaries.")
 
     ret_dict = {}
     for k in common_keys:

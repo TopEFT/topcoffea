@@ -392,11 +392,11 @@ def print_yld_dicts(ylds_dict,tag,show_errs=False,tolerance=None):
     return ret
 
 
-# Get the difference between values in nested dictionary, currently can get either percent diff, or absolute diff
-# Returns a dictionary in the same format (currently does not propagate errors, just returns None)
+# Wrapper around get_diff_between_dicts for nested dicts
+# Returns a dictionary in the same format (currently does not propagate errors for percent diff, just returns None)
 #   dict = {
 #       k : {
-#           subk : (val,err)
+#           subk : [val,var]
 #       }
 #   }
 # Note: This function makes use of utils.get_common_keys and utils.get_pdiff
@@ -409,45 +409,46 @@ def get_diff_between_nested_dicts(dict1,dict2,difftype,inpercent=False):
 
     ret_dict = {}
     for k in common_keys:
-
-        ret_dict[k] = {}
-
-        # Get list of sub keys common to both sub dictionaries
-        common_subkeys, d1_subkeys, d2_subkeys = get_common_keys(dict1[k],dict2[k])
-        if len(d1_subkeys+d2_subkeys) > 0:
-            print(f"\tWARNING, sub keys {d1_subkeys+d2_subkeys} are not in both dictionaries.")
-
-        for subk in common_subkeys:
-            v1,e1 = dict1[k][subk]
-            v2,e2 = dict2[k][subk]
-            if difftype == "percent_diff":
-                ret_diff = get_pdiff(v1,v2,in_percent=inpercent)
-                ret_err = None
-            elif difftype == "absolute_diff":
-                ret_diff = v1 - v2
-                if (e1 is not None) and (e2 is not None):
-                    ret_err = e1 - e2 # Assumes these are variances not errors (i.e. already squared)
-                else:
-                    ret_err = None
-            elif difftype == "sum":
-                ret_diff = v1 + v2
-                if (e1 is not None) and (e2 is not None):
-                    ret_err = e1 + e2 # Assumes these are variances not errors (i.e. already squared)
-                else:
-                    ret_err = None
-            else:
-                raise Exception(f"Unknown diff type: {difftype}. Exiting...")
-
-            ret_dict[k][subk] = (ret_diff,ret_err)
+        ret_dict[k] = get_diff_between_dicts(dict1[k],dict2[k],difftype,inpercent)
 
     return ret_dict
 
-'''
-# Get the difference between values in a dictionary, currently can get either percent diff, or absolute diff
+
+# Get the difference between values in a dictionary, currently can get either percent diff, or absolute diff, or sum
 # Returns a dictionary in the same format (currently does not propagate errors for percent diff, just returns None)
 #   dict = {
-#       k : (val,var)
+#       k : [val,var]
 #   }
 # Note: This function makes use of utils.get_common_keys and utils.get_pdiff
-def get_diff_between_nested_dicts(dict1,dict2,difftype,inpercent=False):
-'''
+def get_diff_between_dicts(dict1,dict2,difftype,inpercent=False):
+
+    # Get list of sub keys common to both sub dictionaries
+    common_keys, d1_keys, d2_keys = get_common_keys(dict1,dict2)
+    if len(d1_keys+d2_keys) > 0:
+        print(f"\tWARNING, sub keys {d1_subkeys+d2_subkeys} are not in both dictionaries.")
+
+    ret_dict = {}
+    for k in common_keys:
+        v1,e1 = dict1[k]
+        v2,e2 = dict2[k]
+        if difftype == "percent_diff":
+            ret_diff = get_pdiff(v1,v2,in_percent=inpercent)
+            ret_err = None
+        elif difftype == "absolute_diff":
+            ret_diff = v1 - v2
+            if (e1 is not None) and (e2 is not None):
+                ret_err = e1 - e2 # Assumes these are variances not errors (i.e. already squared)
+            else:
+                ret_err = None
+        elif difftype == "sum":
+            ret_diff = v1 + v2
+            if (e1 is not None) and (e2 is not None):
+                ret_err = e1 + e2 # Assumes these are variances not errors (i.e. already squared)
+            else:
+                ret_err = None
+        else:
+            raise Exception(f"Unknown diff type: {difftype}. Exiting...")
+
+        ret_dict[k] = [ret_diff,ret_err]
+
+    return ret_dict

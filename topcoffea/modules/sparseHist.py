@@ -224,9 +224,9 @@ class SparseHist(hda.Hist, family=hda):
         )
         for index_key, dense_hist in hists.items():
             named_key = self.index_to_categories(index_key)
-            new_named = new_hda._make_tuple(named_key, included_axes)
-            new_index = new_hda._fill_bookkeep(*new_named)
-            new_hda._dense_hists[new_index] += dense_hist
+            new_named = new_hist._make_tuple(named_key, included_axes)
+            new_index = new_hist._fill_bookkeep(*new_named)
+            new_hist._dense_hists[new_index] += dense_hist
         return new_hist
 
     def _from_hists_no_dense(
@@ -238,7 +238,7 @@ class SparseHist(hda.Hist, family=hda):
         new_hist = hda.Hist(*categorical_axes, **self._init_args)
         for index_key, weight in hists.items():
             named_key = ()
-            new_hda.fill(*named_key, weight=weight)
+            new_hist.fill(*named_key, weight=weight)
         return new_hist
 
     def _from_no_bins_found(self, index_key, cat_axes):

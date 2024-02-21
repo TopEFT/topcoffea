@@ -4,6 +4,8 @@ import hist
 import boost_histogram as bh
 import numpy as np
 import awkward as ak
+import dask_awkward as dak
+import dask
 
 from typing import Any, List, Mapping, Union
 
@@ -172,7 +174,7 @@ class HistEFT(SparseHist, family=_family):
 
     def _fill_flatten(self, a, n_events):
         # manipulate input arrays into flat arrays. broadcast_to and ravel used so that arrays are not duplicated in memory
-        a = np.asarray(a)
+        #a = np.asarray(a)
         if a.ndim > 2 or (a.ndim == 2 and (a.shape != (n_events, 1))):
             raise ValueError(
                 "Incompatible dimensions between data and Wilson coefficients."
@@ -186,14 +188,14 @@ class HistEFT(SparseHist, family=_family):
         #                            [...       ]]
         # and then into       [e0, e0, ..., e1, e1, ..., e2, e2, ...]
         # each value repeated the number of quadratic coefficients.
-        return np.broadcast_to(a, (self._quad_count, n_events)).T.ravel()
+        return dask.array.broadcast_to(a.compute(), (self._quad_count, n_events.compute())).T.ravel()
 
     def _fill_indices(self, n_events):
         # turns [0, 1, 2, ..., num of quadratic coeffs - 1]
         # into:
         # [0, 1, 2, ..., 0, 1, 2 ...,]
         # repeated n_events times.
-        return np.broadcast_to(np.ogrid[0: self._quad_count], (n_events, self._quad_count)).ravel()
+        return dask.array.broadcast_to(dask.array.meshgrid(dask.array.arange(self._quad_count))[0], (n_events.compute(), self._quad_count)).ravel()
 
     def fill(
         self,
@@ -223,8 +225,11 @@ class HistEFT(SparseHist, family=_family):
                 np.concatenate((np.ones((1,)), np.zeros((self._quad_count - 1,)))),
                 (n_events, self._quad_count),
             )
-
-        eft_coeff = np.asarray(eft_coeff)
+        elif isinstance(eft_coeff, list):
+            eft_coeff = dak.from_lists(eft_coeff)
+        elif not isinstance(eft_coeff, dak.Array):
+            raise TypeError("eft_coeff should be a dask_awkward array")
+        print(eft_coeff)
 
         # turn into [e0, e0, ..., e1, e1, ..., e2, e2, ...]
         values[self._dense_axis.name] = self._fill_flatten(
@@ -232,7 +237,7 @@ class HistEFT(SparseHist, family=_family):
         )
 
         # turn into: [c00, c01, c02, ..., c10, c11, c12, ...]
-        eft_coeff = eft_coeff.ravel()
+        #eft_coeff = eft_coeff.ravel()
 
         # index for coefficient axes.
         # [ 0, 1, 2, ..., 0, 1, 2, ...]

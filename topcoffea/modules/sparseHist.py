@@ -5,9 +5,6 @@ import hist.dask as hda
 import boost_histogram as bh
 
 import awkward as ak
-import dask_awkward as dak
-import dask
-from dask import bag as db
 import numpy as np
 
 from itertools import chain, product

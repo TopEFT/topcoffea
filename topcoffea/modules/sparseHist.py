@@ -147,7 +147,7 @@ class SparseHist(hda.Hist, family=hda):
             if value > -1:
                 return value + offset
             else:
-                return len(self._bookkeep_hda.axes[cat_name]) + value + offset
+                return len(self._bookkeep_hist.axes[cat_name]) + value + offset
         elif isinstance(value, str):
             return self.categorical_axes[cat_name].index(value) + offset
         elif isinstance(value, complex):

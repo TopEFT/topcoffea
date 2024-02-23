@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import hist
+import hist.dask as hda
 import boost_histogram as bh
 import numpy as np
 import awkward as ak
@@ -105,6 +106,7 @@ class HistEFT(SparseHist, family=_family):
         if kwargs["storage"] != "Double":
             raise ValueError("only 'Double' storage is supported")
 
+        print(args)
         if args[-1].name == "quadratic_term":
             self._coeff_axis = args[-1]
             args = args[:-1]
@@ -188,14 +190,17 @@ class HistEFT(SparseHist, family=_family):
         #                            [...       ]]
         # and then into       [e0, e0, ..., e1, e1, ..., e2, e2, ...]
         # each value repeated the number of quadratic coefficients.
-        if isinstance(a, (str, list, np.ndarray)):
-            a = dask.array.from_array(a)
-        elif isinstance(a, (dak.Array)):
-            a = dak.to_dask_array(a)
-        if isinstance(n_events, (dak.Array)):
-            n_events = dak.to_dask_array(n_events)
+        #TODO clean this up
+        #if isinstance(a, (str, list, np.ndarray)):
+        #    a = dask.array.from_array(a)
+        #elif isinstance(a, (dak.Array)):
+        #    a = dak.to_dask_array(a)
+        #if isinstance(n_events, (dak.Array)):
+        #    n_events = dak.to_dask_array(n_events)
         return dask.array.broadcast_to(a, (self._quad_count, n_events)).T.ravel()
+        #return dask.array.broadcast_to(a.compute(), (self._quad_count, n_events.compute())).T.ravel()
 
+    @dask.delayed
     def _fill_indices(self, n_events):
         # turns [0, 1, 2, ..., num of quadratic coeffs - 1]
         # into:
@@ -223,20 +228,24 @@ class HistEFT(SparseHist, family=_family):
         If eft_coeff is not given, then it is assumed to be [[1, 0, 0, ...], [1, 0, 0, ...], ...]
         """
 
-        n_events = ak.num(values[self.dense_axis.name], axis=0)
+        #n_events = dak.to_dask_array(values[self.dense_axis.name]).chunksize[0]
+        #n_events = dak.num(values[self.dense_axis.name], axis=0)
+        #n_events = dak.num(dak.from_awkward(values[self.dense_axis.name], npartitions=1), axis=0)
+        if isinstance(values[self.dense_axis.name], np.ndarray):
+            n_events = dask.array.from_array(values[self.dense_axis.name]).chunksize[0]
+        else:
+            n_events = dak.to_dask_array(dak.from_awkward(values[self.dense_axis.name], npartitions=1)).chunksize[0]
 
         if eft_coeff is None:
             # if eft_coeff not given, assume values only for sm
-            eft_coeff = np.broadcast_to(
+            eft_coeff = dask.array.broadcast_to(
                 np.concatenate((np.ones((1,)), np.zeros((self._quad_count - 1,)))),
                 (n_events, self._quad_count),
             )
-        elif isinstance(eft_coeff, list):
-            eft_coeff = dak.from_lists(eft_coeff)
-        elif isinstance(eft_coeff, np.ndarray):
-            eft_coeff = dak.from_lists(eft_coeff)
-        #elif not isinstance(eft_coeff, dak.Array):
-        #    raise TypeError("eft_coeff should be a dask_awkward array")
+        elif isinstance(eft_coeff, (np.ndarray, list)):
+            eft_coeff = dask.array.from_array(eft_coeff)
+        elif not isinstance(eft_coeff, (dak.Array, dask.array.Array)):
+            raise TypeError("eft_coeff should be a dask_awkward array")
 
         # turn into [e0, e0, ..., e1, e1, ..., e2, e2, ...]
         values[self._dense_axis.name] = self._fill_flatten(
@@ -244,7 +253,7 @@ class HistEFT(SparseHist, family=_family):
         )
 
         # turn into: [c00, c01, c02, ..., c10, c11, c12, ...]
-        #eft_coeff = eft_coeff.ravel()
+        eft_coeff = eft_coeff.ravel()
 
         # index for coefficient axes.
         # [ 0, 1, 2, ..., 0, 1, 2, ...]
@@ -255,7 +264,7 @@ class HistEFT(SparseHist, family=_family):
             weight = self._fill_flatten(weight, n_events)
             eft_coeff = eft_coeff * weight
         else:
-            weight = dask.array.broadcast_to(1, (n_events,))
+            weight = dask.array.broadcast_to(1, (n_events,)).ravel()
 
         # fills:
         # [e0,      e0,      e0    ..., e1,     e1,     e1,     ...]

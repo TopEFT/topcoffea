@@ -106,7 +106,6 @@ class HistEFT(SparseHist, family=_family):
         if kwargs["storage"] != "Double":
             raise ValueError("only 'Double' storage is supported")
 
-        print(args)
         if args[-1].name == "quadratic_term":
             self._coeff_axis = args[-1]
             args = args[:-1]

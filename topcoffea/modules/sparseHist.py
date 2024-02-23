@@ -5,6 +5,7 @@ import hist.dask as hda
 import boost_histogram as bh
 
 import awkward as ak
+import dask_awkward as dak
 import numpy as np
 
 from itertools import chain, product
@@ -124,7 +125,6 @@ class SparseHist(hda.Hist, family=hda):
 
     def _fill_bookkeep(self, *args):
         super().fill(*args)
-        print(args)
         index_key = self.categories_to_index(args)
         if index_key not in self._dense_hists:
             h = self.make_dense(*self._dense_axes)
@@ -134,6 +134,8 @@ class SparseHist(hda.Hist, family=hda):
     def fill(self, weight=None, sample=None, threads=None, **kwargs):
         cats, nocats = self._split_axes(kwargs)
 
+        # Make strings play nice with dask
+        cats = {k: (dak.from_awkward(ak.Array([v]), npartitions=1) if isinstance(v, str) else v) for k,v in cats.items()}
         # fill the bookkeeping first, so that the index of the key exists.
         index_key = self._fill_bookkeep(*list(cats.values()))
         h = self._dense_hists[index_key]

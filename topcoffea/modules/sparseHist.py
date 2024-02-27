@@ -140,10 +140,10 @@ class SparseHist(dah.Hist, family=dah):
             yield self.index_to_categories(indices)
 
     def _fill_bookkeep(self, *args):
-        args = tuple(dak.from_awkward(ak.Array([a]), npartitions=1) for a in args)
+        #args = tuple(dak.from_awkward(ak.Array([a]), npartitions=1) for a in args)
         #FIXME dah has issues with filling empty tuple
-        super().fill(*args)
-        #super().fill(*tuple(dak.from_awkward(ak.Array([a]), npartitions=1) for a in args))
+        #super().fill(*args)
+        super().fill(*tuple(dak.from_awkward(ak.Array([a]), npartitions=1) for a in args))
         index_key = self.categories_to_index(args)
         if index_key not in self._dense_hists:
             h = self.make_dense(*self._dense_axes)

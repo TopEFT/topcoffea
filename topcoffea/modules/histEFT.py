@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 import hist
-import hist.dask as hda
+import hist.dask as dah
 import boost_histogram as bh
 import numpy as np
 import awkward as ak
@@ -106,23 +106,32 @@ class HistEFT(SparseHist, family=_family):
         if kwargs["storage"] != "Double":
             raise ValueError("only 'Double' storage is supported")
 
-        if args[-1].name == "quadratic_term":
+        if (isinstance(args[-1], hist.quick_construct.ConstructProxy) and args[-1].axes[0].name == "quadratic_term") or (not isinstance(args[-1], hist.quick_construct.ConstructProxy) and args[-1].name == "quadratic_term"):
             self._coeff_axis = args[-1]
             args = args[:-1]
         else:
             # no axis for quadratic_term found, creating our own.
-            self._coeff_axis = hist.axis.Integer(
+            self._coeff_axis = dah.Hist.new.Integer(
                 start=0, stop=self._quad_count, name="quadratic_term"
             )
 
         self._dense_axis = args[-1]
-        if not isinstance(
-            self._dense_axis, (bh.axis.Regular, bh.axis.Variable, bh.axis.Integer)
+        isinstance(args[-1], hist.quick_construct.ConstructProxy)
+        if isinstance(args[-1], hist.quick_construct.ConstructProxy) and not isinstance(
+            self._dense_axis.axes[0], (bh.axis.Regular, bh.axis.Variable, bh.axis.Integer, hist.axis.Regular)
+        ):
+            raise ValueError("dense axis should be the last specified")
+        if not isinstance(args[-1], hist.quick_construct.ConstructProxy) and not isinstance(
+            self._dense_axis, (bh.axis.Regular, bh.axis.Variable, bh.axis.Integer, hist.axis.Regular)
         ):
             raise ValueError("dense axis should be the last specified")
 
         reserved_names = ["quadratic_term", "sample", "weight", "thread"]
-        if any([axis.name in reserved_names for axis in args]):
+        if isinstance(args[-1], hist.quick_construct.ConstructProxy) and any([any(ax.name in reserved_names for ax in axis) for axis in (a.axes for a in args)]):
+            raise ValueError(
+                f"No axis may have one of the following names: {','.join(reserved_names)}"
+            )
+        elif not isinstance(args[-1], hist.quick_construct.ConstructProxy) and any([axis.name in reserved_names for axis in args]):
             raise ValueError(
                 f"No axis may have one of the following names: {','.join(reserved_names)}"
             )
@@ -207,6 +216,12 @@ class HistEFT(SparseHist, family=_family):
         # repeated n_events times.
         return dask.array.broadcast_to(dask.array.meshgrid(dask.array.arange(self._quad_count))[0], (n_events, self._quad_count)).ravel()
 
+    def _get_axis_name(self, axis):
+        if isinstance(axis, hist.quick_construct.ConstructProxy):
+            return axis.axes[0].name
+        else:
+            return axis.name
+
     def fill(
         self,
         eft_coeff: ArrayLike = None,  # [num of events x (num of wc coeffs + 1)]
@@ -226,14 +241,22 @@ class HistEFT(SparseHist, family=_family):
 
         If eft_coeff is not given, then it is assumed to be [[1, 0, 0, ...], [1, 0, 0, ...], ...]
         """
+        #values = {k: (dak.num(dak.from_awkward(ak.Array([v]), npartitions=1)) if isinstance(v, str) else v) for k,v in values.items()}
+        for key,val in values.items():
+            break
+            if isinstance(val, str):
+                values[key] = dak.num(dak.from_awkward(ak.Array([val]), npartitions=1))
+            if isinstance(val, (np.ndarray)):
+                values[key] = ak.Array(val)
+                #values[key] = dask.array.from_array(val)
 
         #n_events = dak.to_dask_array(values[self.dense_axis.name]).chunksize[0]
         #n_events = dak.num(values[self.dense_axis.name], axis=0)
         #n_events = dak.num(dak.from_awkward(values[self.dense_axis.name], npartitions=1), axis=0)
-        if isinstance(values[self.dense_axis.name], np.ndarray):
-            n_events = dask.array.from_array(values[self.dense_axis.name]).chunksize[0]
+        if isinstance(values[self._get_axis_name(self.dense_axis)], np.ndarray):
+            n_events = dask.array.from_array(values[self._get_axis_name(self.dense_axis)]).chunksize[0]
         else:
-            n_events = dak.to_dask_array(dak.from_awkward(values[self.dense_axis.name], npartitions=1)).chunksize[0]
+            n_events = dak.to_dask_array(dak.from_awkward(values[self._get_axis_name(self.dense_axis)], npartitions=1)).chunksize[0]
 
         if eft_coeff is None:
             # if eft_coeff not given, assume values only for sm
@@ -247,8 +270,8 @@ class HistEFT(SparseHist, family=_family):
             raise TypeError("eft_coeff should be a dask_awkward array")
 
         # turn into [e0, e0, ..., e1, e1, ..., e2, e2, ...]
-        values[self._dense_axis.name] = self._fill_flatten(
-            values[self._dense_axis.name], n_events
+        values[self._get_axis_name(self._dense_axis)] = self._fill_flatten(
+            values[self._get_axis_name(self._dense_axis)], n_events
         )
 
         # turn into: [c00, c01, c02, ..., c10, c11, c12, ...]

@@ -1,11 +1,12 @@
 #! /usr/bin/env python
 
 import hist
-import hist.dask as hda
+import hist.dask as dah
 import boost_histogram as bh
 
 import awkward as ak
 import dask_awkward as dak
+import dask
 import numpy as np
 
 from itertools import chain, product
@@ -14,13 +15,13 @@ from collections import namedtuple
 from typing import Mapping, Union, Sequence
 
 
-class SparseHist(hda.Hist, family=hda):
+class SparseHist(dah.Hist, family=dah):
     """Histogram specialized for sparse categorical data."""
 
     def __init__(self, *axes, **kwargs):
         """Arguments:
         axes: List of categorical and regular/variable axes. Categorical access should come first. At least one regular or variable axis should be specified.
-        kwargs: Same as for hda.Hist
+        kwargs: Same as for dah.Hist
         """
 
         self._init_args = dict(kwargs)
@@ -30,7 +31,7 @@ class SparseHist(hda.Hist, family=hda):
         self._tuple_t = namedtuple(
             f"SparseHistTuple{id(self)}", [a.name for a in categorical_axes]
         )
-        self._dense_hists: dict[self._tuple_t, hda.Hist] = {}
+        self._dense_hists: dict[self._tuple_t, dah.Hist] = {}
 
         # we use self to keep track of the bins in the categorical axes.
         super().__init__(*categorical_axes, storage="Double")
@@ -46,13 +47,26 @@ class SparseHist(hda.Hist, family=hda):
         dense_axes = []
 
         for axis in axes:
+            #TODO see if this can be optimized
             if isinstance(axis, (hist.axis.StrCategory, hist.axis.IntCategory)):
                 if not on_cats:
                     ValueError("All categorical axes should be specified first.")
                 categorical_axes.append(axis)
+            elif isinstance(axis, hist.quick_construct.ConstructProxy):
+                if not on_cats:
+                    ValueError("All categorical axes should be specified first.")
+                for ax in axis.axes:
+                    if isinstance(ax, (hist.axis.StrCategory, hist.axis.IntCategory)):
+                        categorical_axes.append(ax)
+                    else:
+                        dense_axes.append(ax)
             else:
                 on_cats = False
-                dense_axes.append(axis)
+                if isinstance(axis, hist.quick_construct.ConstructProxy):
+                    for ax in axis.axes:
+                        dense_axes.append(ax)
+                else:
+                    dense_axes.append(axis)
 
         if len(dense_axes) < 1:
             raise ValueError("At least one dense axis should be specified.")
@@ -72,7 +86,7 @@ class SparseHist(hda.Hist, family=hda):
         return type(self)(*categorical_axes, *dense_axes, **kwargs, **self._init_args)
 
     def make_dense(self, *axes, **kwargs):
-        return hda.Hist(*axes, **self._init_args, **kwargs)
+        return dah.Hist(*axes, **self._init_args, **kwargs)
 
     def __copy__(self):
         """Empty histograms with the same bins."""
@@ -98,11 +112,13 @@ class SparseHist(hda.Hist, family=hda):
     def _make_tuple(self, other, mask=None):
         if mask is None:
             args = list(other)
+            #args = [o.name for o in other]
         else:
             args = [o for o, m in zip(other, mask) if m]
         return self._tuple_t(*args)
 
     def categories_to_index(self, bins: Union[Sequence, Mapping]):
+        #FIXME growth is broken
         return tuple(axis.index(bin) for axis, bin in zip(self.categorical_axes, bins))
 
     def index_to_categories(self, indices: Sequence):
@@ -124,7 +140,10 @@ class SparseHist(hda.Hist, family=hda):
             yield self.index_to_categories(indices)
 
     def _fill_bookkeep(self, *args):
+        args = tuple(dak.from_awkward(ak.Array([a]), npartitions=1) for a in args)
+        #FIXME dah has issues with filling empty tuple
         super().fill(*args)
+        #super().fill(*tuple(dak.from_awkward(ak.Array([a]), npartitions=1) for a in args))
         index_key = self.categories_to_index(args)
         if index_key not in self._dense_hists:
             h = self.make_dense(*self._dense_axes)
@@ -135,7 +154,7 @@ class SparseHist(hda.Hist, family=hda):
         cats, nocats = self._split_axes(kwargs)
 
         # Make strings play nice with dask
-        cats = {k: (dak.from_awkward(ak.Array([v]), npartitions=1) if isinstance(v, str) else v) for k,v in cats.items()}
+        #cats = {k: (dak.from_awkward(ak.Array([v]), npartitions=1) if isinstance(v, str) else v) for k,v in cats.items()}
         # fill the bookkeeping first, so that the index of the key exists.
         index_key = self._fill_bookkeep(*list(cats.values()))
         h = self._dense_hists[index_key]
@@ -209,7 +228,7 @@ class SparseHist(hda.Hist, family=hda):
         categorical_axes: list,
         included_axes: Union[None, Sequence] = None,
     ):
-        """Construct a sparse hda from a dictionary of dense histograms.
+        """Construct a sparse dah from a dictionary of dense histograms.
         hists: a dictionary of dense histograms.
         categorical_axes: axes to use for the new histogram.
         included_axes: mask that indicates which category axes are present in the new histogram.
@@ -233,8 +252,8 @@ class SparseHist(hda.Hist, family=hda):
         hists: dict,
         categorical_axes: list,
     ):
-        """Construct a hda.Hist from a dictionary of histograms where all the dense axes have collapsed."""
-        new_hist = hda.Hist(*categorical_axes, **self._init_args)
+        """Construct a dah.Hist from a dictionary of histograms where all the dense axes have collapsed."""
+        new_hist = dah.Hist(*categorical_axes, **self._init_args)
         for index_key, weight in hists.items():
             named_key = ()
             new_hist.fill(*named_key, weight=weight)
@@ -243,13 +262,13 @@ class SparseHist(hda.Hist, family=hda):
     def _from_no_bins_found(self, index_key, cat_axes):
         # If no bins are found, we need to check whether those bins would be present in a completely dense histogram.
         # If so, we return either the zero value for that histogram, or an empty histogram without the collapsed axes.
-        dummy_zeros = hda.Hist(*self.dense_axes, storage=self._init_args.get('storage', None))
+        dummy_zeros = dah.Hist(*self.dense_axes, storage=self._init_args.get('storage', None))
         try:
             sliced_zeros = dummy_zeros[{a.name: index_key[a.name] for a in self.dense_axes}]
         except KeyError:
             raise KeyError("No bins found")
 
-        if isinstance(sliced_zeros, hda.Hist):
+        if isinstance(sliced_zeros, dah.Hist):
             return self.empty_from_axes(categorical_axes=cat_axes, dense_axes=sliced_zeros.axes)
         else:
             return sliced_zeros
@@ -315,7 +334,7 @@ class SparseHist(hda.Hist, family=hda):
             return self._from_no_bins_found(index_key, new_cats)
 
         first = list(filtered.values())[0]
-        if not isinstance(first, hda.Hist):
+        if not isinstance(first, dah.Hist):
             if len(new_cats) == 0:
                 # whole histogram collapsed to singe value
                 return first
@@ -381,7 +400,7 @@ class SparseHist(hda.Hist, family=hda):
         according to the groups mapping.
         """
         old_axis = self.axes[axis_name]
-        new_axis = hist.axis.StrCategory(
+        new_axis = dah.Hist.new.StrCategory(
             groups.keys(), name=axis_name, label=old_axis.label, growth=True
         )
 

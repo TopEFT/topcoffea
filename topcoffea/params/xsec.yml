@@ -91,7 +91,7 @@ ZZTo2Q2Nu               : 4.04
 ZZTo4L                  : 1.256
 
 ggToZHToHToWWTo2L2Nu    : 0.00275
-qqToZHToZTo2L           : 0.0018639
+ggToZHToZTo2L           : 0.0018639
 
 WWW                     : 0.2086
 WWZ                     : 0.1651
@@ -120,11 +120,16 @@ TWZToLL_thad_Wlept  : 0.003004
 TWZToLL_tlept_Whad  : 0.003004
 TWZToLL_tlept_Wlept : 0.0015
 
-# Number from CMS AN-19-144
-tWll : 0.01123
-
 # Numbers from https://github.com/cmstas/VVVNanoLooper/blob/master/weights/xsec.txt
 VHnobb : 0.952
 SSWW   : 0.02794
 
-data                    : 1.0
+
+# Run3 Values (13p6 TeV)
+DYto2L-2Jets_MLL-50_13p6TeV    : 6345.99  #SMP 24-001
+WtoLNu-2Jets_13p6TeV           : 64481.58 #SMP 24-001
+WW_13p6TeV                     : 127.2    #SMP 24-001
+TTto2L2Nu_13p6TeV              : 98.0     #SMP 24-001
+
+
+data                           : 1.0

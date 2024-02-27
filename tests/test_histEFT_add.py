@@ -1,9 +1,12 @@
 import numpy as np
 import hist
+import hist.dask as dah
 from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 
 import awkward as ak
+import dask_awkward as dak
+import dask.array as da
 
 # Let's generate some fake data to use for testing
 wc_names_lst = [
@@ -35,13 +38,13 @@ nevts = 1000
 wc_count = len(wc_names_lst)
 ncoeffs = efth.n_quad_terms(wc_count)
 rng = np.random.default_rng()
-eft_fit_coeffs = rng.normal(0.3, 0.5, (nevts, ncoeffs))
+eft_fit_coeffs = da.random.normal(0.3, 0.5, (nevts, ncoeffs))
 eft_all_ones_coeffs = np.ones((nevts, ncoeffs))
 sums = np.sum(eft_fit_coeffs, axis=0)
 
 a = HistEFT(
-    hist.axis.StrCategory([], name="type", label="type", growth=True),
-    hist.axis.Regular(1, 0, 1, name="x", label="x"),
+    dah.Hist.new.StrCategory(['eft', 'non-eft'], name="type", label="type", growth=True),
+    dah.Hist.new.Regular(1, 0, 1, name="x", label="x"),
     label="Events",
     wc_names=wc_names_lst,
 )
@@ -50,13 +53,13 @@ a = HistEFT(
 b = a.copy()
 
 # Fill the EFT histogram
-a.fill(type="eft", x=np.full(nevts, 0.5), eft_coeff=eft_fit_coeffs)
+a.fill(type='eft', x=np.full(nevts, 0.5), eft_coeff=eft_fit_coeffs)
 b.fill(type="non-eft", x=np.full(nevts, 0.5))
 
 
 a_w = HistEFT(
-    hist.axis.StrCategory([], name="type", label="type", growth=True),
-    hist.axis.Regular(1, 0, 1, name="x", label="x"),
+    dah.Hist.new.StrCategory(['eft', 'non-eft'], name="type", label="type", growth=True),
+    dah.Hist.new.Regular(1, 0, 1, name="x", label="x"),
     label="Events",
     wc_names=wc_names_lst,
 )

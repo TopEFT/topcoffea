@@ -286,12 +286,16 @@ class SparseHist(hist.Hist, family=hist):
         else:
             h = list(filtered.values())[0]
 
-        try:
-            h[nocats] = value.values()
-        except Exception as e:
-            if new_hist:
-                del self._dense_hists[cat_index]
-            raise e
+        #TODO this is a hack to allow us to pass np arrays
+        if isinstance(value, np.ndarray):
+            h[nocats] = value
+        else:
+            try:
+                h[nocats] = value.values()
+            except Exception as e:
+                if new_hist:
+                    del self._dense_hists[cat_index]
+                raise e
 
     def __getitem__(self, key):
         index_key = self._make_index_key(key)

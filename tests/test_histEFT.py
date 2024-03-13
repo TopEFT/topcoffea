@@ -84,7 +84,7 @@ def test_eval():
     # check linearity holds
     assert (
         abs(
-            (sum_two_p + sum_two_m - 2 * sum_zero) / 4 (sum_one_p + sum_one_m - 2 * sum_zero)
+            (sum_two_p + sum_two_m - 2 * sum_zero) - (4 * (sum_one_p + sum_one_m - 2 * sum_zero))
         ) < 1e-10
     )
 

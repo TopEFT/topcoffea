@@ -775,3 +775,6 @@ class HistEFT(coffea.hist.Hist):
             raise NotImplementedError("Scale dense dimension by a factor")
         else:
             raise TypeError("Could not interpret scale factor")
+
+    def empty(self):
+        return not self._sumw

@@ -123,7 +123,7 @@ def get_info(fname, tree_name = "Events"):
     raw_events = 0  # The raw number of entries as reported by TTree.num_entries
     gen_events = 0  # Number of gen events according to 'genEventCount' or set to raw_events if not found
     sow_events = 0  # Sum of weights
-    sow_lhe_wgts = 0 #Sume of LHE weights 
+    sow_lhe_wgts = 0 #Sume of LHE weights
     is_data = False
     print(f"Opening with uproot: {fname}")
     with uproot.open(fname) as f:

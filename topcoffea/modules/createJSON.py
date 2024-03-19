@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--year','-y'       , default=-1           , help = 'Year')
     parser.add_argument('--treename'        , default='Events'     , help = 'Name of the tree')
     parser.add_argument('--histAxisName'    , default=''           , help = 'Name for the samples axis of the coffea hist')
+    parser.add_argument('--era'             , default=None         , help = 'Era Name') #Needed for Era dependency in Run3
 
     parser.add_argument('--DAS'             , action='store_true'  , help = 'Search files from DAS dataset')
     parser.add_argument('--nFiles'          , default=None         , help = 'Number of max files (for the moment, only applies for DAS)')
@@ -37,6 +38,7 @@ def main():
     xsec         = args.xsec
     xsecName     = args.xsecName
     year         = args.year
+    era          = args.era
     options      = args.options
     treeName     = args.treename
     histAxisName = args.histAxisName
@@ -60,6 +62,8 @@ def main():
     sampdic['treeName']     = treeName
     sampdic['histAxisName'] = histAxisName
     sampdic['options']      = options
+    if era is not None:
+        sampdic['era']      = era
 
     print("prefix",prefix)
     print("path",path)
@@ -121,13 +125,14 @@ def main():
             n_sum_of_weights += i_sum_of_weights
             is_data_lst.append(is_data)
             # Get the sum of the up and down LHE weights
-            if n_sum_of_lhe_weights is None:
-                n_sum_of_lhe_weights = list(i_sum_of_lhe_weights)
-            else:
-                if len(n_sum_of_lhe_weights) != len(i_sum_of_lhe_weights):
-                    raise Exception("Different length of LHE weight array in different files.")
-                for i in range(len(n_sum_of_lhe_weights)):
-                    n_sum_of_lhe_weights[i] += i_sum_of_lhe_weights[i]
+            if not is_data:
+                if n_sum_of_lhe_weights is None:
+                    n_sum_of_lhe_weights = list(i_sum_of_lhe_weights)
+                else:
+                    if len(n_sum_of_lhe_weights) != len(i_sum_of_lhe_weights):
+                        raise Exception("Different length of LHE weight array in different files.")
+                    for i in range(len(n_sum_of_lhe_weights)):
+                        n_sum_of_lhe_weights[i] += i_sum_of_lhe_weights[i]
 
         # Raise error if there is a mix of data and mc files
         if len(set(is_data_lst)) != 1:
@@ -151,7 +156,8 @@ def main():
     if args.includeLheWgts:
         sampdic['nSumOfLheWeights'] = n_sum_of_lhe_weights
 
-    outname = sample
+    if sample != '':
+        outname = sample
     if not outname.endswith('.json'): outname += '.json'
     with open(outname, 'w') as outfile:
         json.dump(sampdic, outfile, indent=4)

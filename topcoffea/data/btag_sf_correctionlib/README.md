@@ -8,10 +8,14 @@ cp /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2016preVFP_U
 cp /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2016postVFP_UL/btagging.json.gz 2016postVFP_UL_btagging.json.gz
 cp /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2017_UL/btagging.json.gz 2017_UL_btagging.json.gz
 cp /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2018_UL/btagging.json.gz 2018_UL_btagging.json.gz
+cp /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2022_Summer22/btagging.json.gz 2022_btagging.json.gz 
+cp /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2022_Summer22EE/btagging.json.gz 2022EE_btagging.json.gz 
 
 gzip -d 2016preVFP_UL_btagging.json.gz
 gzip -d 2016postVFP_UL_btagging.json.gz
 gzip -d 2017_UL_btagging.json.gz
 gzip -d 2018_UL_btagging.json.gz
+gzip -d 2022_btagging.json.gz
+gzip -d 2022EE_btagging.json.gz
 ```
 

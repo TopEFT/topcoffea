@@ -26,11 +26,13 @@ def passes_trg_inlst(events,trg_name_lst):
 #   - Returns an array the len of events
 #   - Elements are false if they do not pass any of the triggers defined in dataset_dict
 #   - In the case of data, events are also false if they overlap with another dataset
-def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict):
+def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict,era=None):
 
-    # The trigger for 2016 and 2016APV are the same
+    # The triggers for 2016 and 2016APV are the same
     if year == "2016APV":
         year = "2016"
+    if year == "2022EE":
+        year = "2022"
 
     # Initialize ararys and lists, get trg pass info from events
     trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=bool) # Array of False the len of events
@@ -46,7 +48,10 @@ def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict):
     trg_passes = passes_trg_inlst(events,full_trg_lst)
 
     # In case of data, check if events overlap with other datasets
-    if is_data:
+    if is_data and (era is not None):   #Used for potential era dependency in Run3
+        trg_passes = passes_trg_inlst(events,dataset_dict[year][dataset])
+        trg_overlaps = passes_trg_inlst(events, exclude_dict[era][dataset])
+    elif is_data:
         trg_passes = passes_trg_inlst(events,dataset_dict[year][dataset])
         trg_overlaps = passes_trg_inlst(events, exclude_dict[year][dataset])
 

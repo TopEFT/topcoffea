@@ -49,7 +49,7 @@ def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict,er
     trg_passes = passes_trg_inlst(events,full_trg_lst)
 
     # In case of data, check if events overlap with other datasets
-    if is_data: 
+    if is_data:
         if era is not None:   #Used for potential era dependency in Run3
             trg_passes = passes_trg_inlst(events,dataset_dict[year][dataset])
             trg_overlaps = passes_trg_inlst(events, exclude_dict[era][dataset])

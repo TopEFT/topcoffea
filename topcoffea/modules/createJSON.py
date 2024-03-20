@@ -156,7 +156,9 @@ def main():
     if args.includeLheWgts:
         sampdic['nSumOfLheWeights'] = n_sum_of_lhe_weights
 
-    if sample != '':
+    if ((sample == '') and (outname == '')):
+        raise Exception("ERROR: There is no specified outname or sample")
+    if (outname == ''):
         outname = sample
     if not outname.endswith('.json'): outname += '.json'
     with open(outname, 'w') as outfile:

@@ -47,7 +47,7 @@ def replace_xsec_for_dict_of_samples(samples_dict,out_dir):
         replace_val_in_json(path_to_json,"xsec",new_xsec)
 
 # Wrapper for createJSON.py
-def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,era,on_das=False,include_lhe_wgts_arr=False):
+def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,era=None,on_das=False,include_lhe_wgts_arr=False):
 
     # If the sample is on DAS, inclue the DAS flag in the createJSON.py arguments
     das_flag = ""

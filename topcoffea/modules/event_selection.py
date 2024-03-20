@@ -31,6 +31,7 @@ def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict,er
     # The triggers for 2016 and 2016APV are the same
     if year == "2016APV":
         year = "2016"
+    #The trigger list for 2022 and 2022EE are the same
     if year == "2022EE":
         year = "2022"
 
@@ -48,12 +49,13 @@ def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict,er
     trg_passes = passes_trg_inlst(events,full_trg_lst)
 
     # In case of data, check if events overlap with other datasets
-    if is_data and (era is not None):   #Used for potential era dependency in Run3
-        trg_passes = passes_trg_inlst(events,dataset_dict[year][dataset])
-        trg_overlaps = passes_trg_inlst(events, exclude_dict[era][dataset])
-    elif is_data:
-        trg_passes = passes_trg_inlst(events,dataset_dict[year][dataset])
-        trg_overlaps = passes_trg_inlst(events, exclude_dict[year][dataset])
+    if is_data: 
+        if era is not None:   #Used for potential era dependency in Run3
+            trg_passes = passes_trg_inlst(events,dataset_dict[year][dataset])
+            trg_overlaps = passes_trg_inlst(events, exclude_dict[era][dataset])
+        else:
+            trg_passes = passes_trg_inlst(events,dataset_dict[year][dataset])
+            trg_overlaps = passes_trg_inlst(events, exclude_dict[year][dataset])
 
     # Return true if passes trg and does not overlap
     return (trg_passes & ~trg_overlaps)

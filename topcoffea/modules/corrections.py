@@ -33,6 +33,10 @@ def btag_sf_eval(jet_collection,wp,year,method,syst):
         fname = topcoffea_path("data/btag_sf_correctionlib/2017_UL_btagging.json")
     elif year == "2018":
         fname = topcoffea_path("data/btag_sf_correctionlib/2018_UL_btagging.json")
+    elif year == "2022":
+        fname = topcoffea_path("data/btag_sf_correctionlib/2022_btagging.json")
+    elif year == "2022EE":
+        fname = topcoffea_path("data/btag_sf_correctionlib/2022EE_btagging.json")
     else:
         raise Exception(f"Not a known year: {year}")
 

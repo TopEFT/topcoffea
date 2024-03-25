@@ -22,11 +22,50 @@ jobs:
           exclude: "./topcoffea/modules/WCFit.py,./topcoffea/modules/WCPoint.py"
           ignore: "E116,E201,E202,E203,E211,E221,E222,E226,E225,E227,E228,E231,E241,E251,E261,E262,E265,E266,E271,E272,E301,E302,E303,E305,E402,F403,F405,E501,W504,E701,E702,E711,E713,E714,E722,E731,E741,F841,W391,W605"
 
+  Check-topcoffea-mamba:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: environment.yml
+          environment-name: topcoffea-env
+          init-shell: >-
+                bash
+
+      - name: Install pip packages
+        run: |
+          pip install -e .
+        shell: micromamba-shell {0}
+
+      - name: Pytest setup
+        run: |
+          micromamba install -y -n topcoffea-env -c conda-forge pytest
+        shell: bash -el {0}
+
+      - name: Test update json
+        run: |
+          pytest tests/test_update_json.py
+        shell: micromamba-shell {0}
+
+      - name: Test HistEFT unit test
+        run: |
+          pytest tests/test_unit.py
+        shell: micromamba-shell {0}
+
+      - name: Test histEFT
+        run: |
+          pytest tests/test_HistEFT_add.py
+        shell: micromamba-shell {0}
+
+
   Check-topcoffea:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Add conda to system path
         run: |

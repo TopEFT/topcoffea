@@ -158,7 +158,7 @@ def main():
 
     if ((sample == '') and (outname == '')):
         raise Exception("ERROR: There is no specified outname or sample")
-    if (outname == ''):
+    elif (outname == ''):
         outname = sample
     if not outname.endswith('.json'): outname += '.json'
     with open(outname, 'w') as outfile:

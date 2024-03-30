@@ -118,7 +118,7 @@ def get_shifted_arr(y_arr_1,y_arr_2,x_arr,shift_factor):
     return shift_arr
 
 # Make a 1d plot
-def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[-10,10],save_dir="."):
+def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[-10,10],yaxis_range=None,scatter_xy=None,save_dir="."):
 
     # Get a string of the fit equation
     def get_fit_str(tag,xvar,s0,s1,s2):
@@ -176,13 +176,20 @@ def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[
         y_arr = quad_arr[1]
         ax.plot(x_arr,y_arr,label=leg_str)
 
+    # Plot individual points on top of the fit
+    if scatter_xy is not None:
+        plt.plot(scatter_xy[0],scatter_xy[1],"o",markersize=7)
+
     # Set x and y ranges (just use default for y unless it's really tiny)
-    if ((ymax-ymin)<1e-6): ax.set_ylim([0.0,1.5])
     ax.set_xlim(xaxis_range)
-    ax.set_ylim([0,ymax*1.2])
+    if yaxis_range is None:
+        if ((ymax-ymin)<1e-6): ax.set_ylim([0.0,1.5])
+        ax.set_ylim([0,ymax*1.2])
+    else:
+        ax.set_ylim(yaxis_range[0],yaxis_range[1])
 
     #ax.plot(x_arr,y_arr,label="TEST")
-    ax.legend()
+    ax.legend(fontsize="12")
 
     # Save the figure
     #plt.show()

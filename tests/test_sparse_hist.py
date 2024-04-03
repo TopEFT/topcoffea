@@ -1,29 +1,33 @@
-import hist
 from topcoffea.modules.sparseHist import SparseHist
+import dask
+import hist.dask as dah
 
 import numpy as np
-import awkward as ak
+import dask_awkward as dak
 import pickle
 
 import pytest
 
 nbins = 12
-data_ptz = np.arange(0, 600, 600 / nbins)
+data_ptz = dask.array.arange(0, 600, 600 / nbins)
 
 
 def make_hist():
-    h = SparseHist(
-        hist.axis.StrCategory([], name="process", growth=True),
-        hist.axis.StrCategory([], name="channel", growth=True),
-        hist.axis.Regular(nbins, 0, 600, name="ptz"),
-    )
+    h = SparseHist("process", "channel", dense_axis=dah.Hist.new.Reg(nbins, 0, 600, name="ptz"))
     h.fill(process="ttH", channel="ch0", ptz=data_ptz)
+
+    # h[("ttH", "ch0")].fill(data_ptz)
 
     return h
 
 
 def test_simple_fill():
-    h = make_hist()
+    print(list(make_hist().keys()))
+    h = make_hist()[("ttH", "ch0")].compute()
+    print(h)
+
+    h = dask.compute(make_hist())[0]
+    print(h)
 
     # expect one count per bin
     ones = np.ones((1, 1, nbins))

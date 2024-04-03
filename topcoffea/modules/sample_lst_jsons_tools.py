@@ -69,8 +69,10 @@ def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,e
         "--xsec"         , path_to_xsecs,
         "--year"         , sample_yr,
         "--histAxisName" , hist_axis_name,
-        "--era"          , era,
     ]
+
+    if era is not None:
+        args.extend(['--era', era])
 
     if xsec_name:
         args.extend(['--xsecName',xsec_name])

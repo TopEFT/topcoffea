@@ -141,6 +141,8 @@ def main():
         else:
             is_data = is_data_lst[0]
 
+        if (is_data) and ("2022" in year) and (era is None):
+            print("WARNING: You have not included an era for a 2022 dataset!")
 
     ###### Fill the sampdic with the values we've found  ######
 

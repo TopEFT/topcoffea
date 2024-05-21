@@ -1,6 +1,5 @@
 import numpy as np
 import awkward as ak
-import dask_awkward as dak
 import uproot
 from coffea import lookup_tools
 import correctionlib

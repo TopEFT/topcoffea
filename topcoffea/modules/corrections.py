@@ -47,8 +47,7 @@ def btag_sf_eval(jet_collection,wp,year,method,syst):
     # Evaluate the SF
     ceval = correctionlib.CorrectionSet.from_file(fname)
 
-    sf = dak.map_partitions(
-        ceval[method].evaluate,
+    sf = ceval[method].evaluate(
         syst,
         wp,
         flav,

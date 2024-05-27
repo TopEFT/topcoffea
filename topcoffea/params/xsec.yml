@@ -127,51 +127,49 @@ tWll : 0.01123
 VHnobb : 0.952
 SSWW   : 0.02794
 
-########################
-# Run3 Values (13p6 TeV)
-########################
+#########################
+# Run3 Values (13p6 TeV)#
+#########################
 
-# Numbers from SMP-24-001
-DYto2L-2Jets_MLL-10to50_13p6TeV    : 19982.5
+#Numbers from TOP-22-012
+TWminus_DR_AtLeastOneLepton_13p6TeV    : 24.2
+TbarWplus_DR_AtLeastOneLepton_13p6TeV  : 24.2
+
+#Numbers from SMP-24-001
 DYto2L-2Jets_MLL-50_13p6TeV        : 6345.99
+DYto2L-2Jets_MLL-10to50_13p6TeV    : 19982.5
 WtoLNu-2Jets_13p6TeV               : 64481.58
-#WW_13p6TeV                         : 125.7
-ZZto4L_13p6TeV                     : 1.65
-WZto3LNu_13p6TeV                   : 5.31
-WWto2L2Nu_13p6TeV                  : 12.98
+WW_13p6TeV                         : 125.7
 TTto2L2Nu_13p6TeV                  : 98.0
 TbarWplusto2L2Nu_13p6TeV           : 4.67
 TWminusto2L2Nu_13p6TeV             : 4.67
 TTHtoNon2B_13p6TeV                 : 0.24111
-WWW_13p6TeV                        : 0.2328
 TTLL_MLL-4to50_13p6TeV             : 0.03949
 TTLL_MLL-50_13p6TeV                : 0.08646
-
-# https://twiki.cern.ch/twiki/bin/viewauth/CMS/HiggsZZ4lRunIII
-GluGluToContinto2Zto2E2Mu_13p6TeV      : 0.00624157
-GluGluToContinto2Zto2E2Tau_13p6TeV     : 0.00624157
-GluGluToContinto2Zto2Mu2Tau_13p6TeV    : 0.00624157
-GluGlutoContinto2Zto4Mu_13p6TeV        : 0.00303575
-GluGlutoContinto2Zto4E_13p6TeV         : 0.00305851
-GluGlutoContinto2Zto4Tau_13p6TeV       : 0.00303575
-
-# Numbers from SMP-22-017
-TbarWplus_DR_AtLeastOneLepton_13p6TeV  : 24.2
-TWminus_DR_AtLeastOneLepton_13p6TeV    : 24.2
+WWW_13p6TeV                        : 0.23280
+WZto3LNu_13p6TeV                   : 5.31
 
 #Numbers from SMP-24-005
-VH_HtoNonbb_13p6TeV                    : 2.55
+VH_HtoNonbb_13p6TeV                    : 0.9561
 WZZ_13p6TeV                            : 0.06
 ZZZ_13p6TeV                            : 0.02
+GluGluToContinto2Zto2E2Mu_13p6TeV      : 0.0061150
+GluGluToContinto2Zto2E2Tau_13p6TeV     : 0.0061150
+GluGluToContinto2Zto2Mu2Tau_13p6TeV    : 0.0061150
+GluGlutoContinto2Zto4Mu_13p6TeV        : 0.003
+GluGlutoContinto2Zto4E_13p6TeV         : 0.003
+GluGlutoContinto2Zto4Tau_13p6TeV       : 0.003
+ZZto4L_13p6TeV                         : 1.65
+WWto2L2Nu_13p6TeV                      : 12.98
+WWZ_13p6TeV                            : 0.19
 
-#Numbers from XSDB
-WWZ4l_13p6TeV                           : 0.002244
-TTZToQQ_13p6TeV                         : 0.6603
-TWZToLL_TtoLNu_WtoLNu_Zto2L_DR1_13p6TeV : 0.001669 
-TWZToLL_TtoLNu_WtoLNu_Zto2L_DR2_13p6TeV : 0.000429 
+#XSDB
+TWZToLL_tlept_Wlept_13p6TeV            : 0.001669
+TTZToQQ_13p6TeV                        : 0.6603
+WWZ4l_13p6TeV                          : 0.002244
 
-# Obatined Using GenXSecAnalyzer
-ZH_ZtoAll_Hto2Wto2L2Nu_M-125_13p6TeV   : 0.0195
-GluGluZHToHtoWWto2L2Nu_13p6TeV         : 0.0033
+#GenXSecAnalyzer
+ZHToHtoWWto2L2Nu_13p6TeV         : 0.0195
+GluGluZHToHtoWWto2L2Nu_13p6TeV   : 0.0033
 
 data                           : 1.0

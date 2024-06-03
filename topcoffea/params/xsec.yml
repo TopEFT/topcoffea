@@ -90,6 +90,10 @@ ZZTo2L2Q                : 3.28
 ZZTo2Q2Nu               : 4.04
 ZZTo4L                  : 1.256
 
+# qq-ZZ sample scaled by the 1.1 K factor as per SMP-19-001
+# See further: https://indico.cern.ch/event/494560/contributions/2014919/attachments/1223781/1798362/ZZ_crosssection_13TeV_preapproval.pdf
+ZZTo4LK                 : 1.3816
+
 ggToZHToHToWWTo2L2Nu    : 0.00275
 qqToZHToZTo2L           : 0.0018639
 

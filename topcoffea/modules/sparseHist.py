@@ -15,7 +15,7 @@ from collections import defaultdict
 from typing import Mapping, Union, Sequence
 
 
-class SparseHist(defaultdict):
+class SparseHist():
     """Histogram specialized for sparse categorical data."""
 
     def __init__(self, *category_names, dense_axis, **kwargs):
@@ -24,7 +24,6 @@ class SparseHist(defaultdict):
         - Exactly one axis should be dense (i.e. hist.dask.Hist.new.Reg), and specified as a keyword argument.
         - kwargs: Same as for hist.dask.Hist
         """
-
         self._init_args = dict(kwargs)
         self._check_args(category_names, dense_axis)
         self._category_names = category_names
@@ -83,19 +82,9 @@ class SparseHist(defaultdict):
     def hist_values(self):
         ...
 
-    def _check_axes_order(self, axes_names):
-        if any(a != name_p for a, name_p in zip(self.category_names, axes_names)):
-            raise ValueError(f"Axes should be specified in the order {list(self.axes)}, not {axes_names}")
-
     def fill(self, weight=None, sample=None, threads=None, **kwargs):
-        axes_names = list(kwargs.keys())
-        self._check_axes_order(axes_names)
-
         cats = tuple(kwargs.pop(cat) for cat in self.category_names)
-
         h = self._dense_hists[cats]
-
-        print("|---->", kwargs, cats)
 
         return h.fill(**kwargs, weight=weight, sample=sample, threads=threads)
 
@@ -180,7 +169,7 @@ class SparseHist(defaultdict):
             if isinstance(value, hist.Hist):
                 h[self.dense_axis.name] = value.values(flow=True)
             else:
-                h = value
+                raise ValueError("cannot assing non-histograms to histogram.")
         except Exception as e:
             if new_hist:
                 del self._dense_hists[key]
@@ -387,6 +376,33 @@ class SparseHist(defaultdict):
 
     def __truediv__(self, other):
         return self._binary_op(other, "__truediv__")
+
+    __dask_scheduler__ = staticmethod(dask.threaded.get)
+
+    def __dask_graph__(self):
+        dsk = {}
+        inter = []
+        for k, v in self._dense_hists.items():
+            dsk.update(v.__dask_graph__())
+            tk = (f"spareHist-{id(self)}", *k)
+            dsk[tk] = (lambda kr, vr: (kr, vr), k, v.__dask_keys__()[0])
+            inter.append(tk)
+        dsk[self.__dask_keys__()[0]] = inter
+        return dsk
+
+    def __dask_keys__(self):
+        return [(f"spareHist-{id(self)}", 0)]
+
+    def __dask_optimize__(self, dsk, keys):
+        return dsk
+
+    def __dask_postcompute__(self):
+        def post(vs):
+            final = {}
+            for k, v in vs[0]:
+                final[k] = v
+            return final
+        return post, ()
 
     # compatibility methods for old coffea
     # all of these are deprecated

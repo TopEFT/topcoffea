@@ -15,17 +15,8 @@ data_ptz_b = dask.array.random.random_integers(low=100, high=500, size=1200)
 
 
 def make_hist():
-    h = SparseHist("process", "channel", dense_axis=dah.Hist.new.Reg(nbins, 0, 600, name="ptz"))
+    h = SparseHist(["process", "channel"], dense_axes=[dah.Hist.new.Reg(nbins, 0, 600, name="ptz")])
     h.fill(process="ttH", channel="ch0", ptz=data_ptz)
-
-    return h
-
-
-def make_hist_many_fills():
-    h = SparseHist("process", "channel", dense_axis=dah.Hist.new.Reg(nbins, 0, 600, name="ptz"))
-    h.fill(process="ttH", channel="ch0", ptz=data_ptz)
-    h.fill(process="ttH", channel="ch1", ptz=data_ptz_b)
-    h.fill(process="ttH", channel="ch2", ptz=data_ptz + data_ptz_b)
 
     return h
 

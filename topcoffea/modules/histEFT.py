@@ -17,10 +17,7 @@ except ImportError:
     Self = Any
 
 
-_family = hist
-
-
-class HistEFT(SparseHist, family=_family):
+class HistEFT(SparseHist):
     """Histogram specialized to hold Wilson Coefficients.
     Example:
     ```

@@ -20,7 +20,7 @@ class SparseHist():
     """Histogram specialized for sparse categorical data. This dask version only supports fills.
     Any other computation should be done SparseHist after calling dask.compute. """
 
-    def __init__(self, *category_names, dense_axis, **kwargs):
+    def __init__(self, *category_names, dense_axis, labels=None, **kwargs):
         """SparseHistDask initialization is similar to hist.Hist, with the following restrictions:
         - Categorical axes are just given by their name.
         - Exactly one axis should be dense (i.e. hist.dask.Hist.new.Reg), and specified as a keyword argument.
@@ -33,6 +33,10 @@ class SparseHist():
         self._n_categories = len(self._category_names)
         # self.axes = hist.axis.NamedAxesTuple(axes)
         self._dense_hists = defaultdict(lambda: self.make_dense())
+        if labels:
+            self._label_dict = dict(labels)
+        else:
+            self._label_dict = {}
 
     def _check_args(self, category_names, dense_axis):
         if not all(isinstance(name, str) for name in category_names):
@@ -85,7 +89,7 @@ class SparseHist():
 
 
 class SparseHistResult():
-    def __init__(self, category_names, histograms=None, dense_axis=None):
+    def __init__(self, category_names, histograms=None, dense_axis=None, labels=None):
         """Result from compute of SparseHist.
         - histograms is a dictionary
         """
@@ -105,6 +109,10 @@ class SparseHistResult():
         self._n_categories = len(self._category_names)
         self._dense_hists = defaultdict(lambda: self.make_dense())
 
+        self._label_dict = None
+        if labels:
+            self._label_dict = dict(labels)
+
         if histograms:
             for k, h in histograms.items():
                 self._dense_hists[k] = h
@@ -112,6 +120,9 @@ class SparseHistResult():
     def _check_args(self, category_names):
         if not all(isinstance(name, str) for name in category_names):
             raise ValueError("All category names should be strings")
+
+    def label(self, category_name):
+        return self._label_dict.get(category_name, category_name)
 
     def __getattr__(self, name):
         def fn(*args, **kwargs):
@@ -352,14 +363,15 @@ class SparseHistResult():
             (
                 list(self.category_names),
                 self._dense_axis,
+                self._label_dict,
                 list(self._dense_hists.keys()),
                 list(self._dense_hists.values()),
             ),
         )
 
     @classmethod
-    def _read_from_reduce(cls, cat_axes, dense_axis, cat_keys, dense_values):
-        return cls(cat_axes, dense_axis=dense_axis, histograms={k: h for k, h in zip(cat_keys, dense_values)})
+    def _read_from_reduce(cls, cat_axes, dense_axis, labels, cat_keys, dense_values):
+        return cls(cat_axes, dense_axis=dense_axis, labels=labels, histograms={k: h for k, h in zip(cat_keys, dense_values)})
 
     def __iadd__(self, other):
         return self._ibinary_op(other, "__iadd__")

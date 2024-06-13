@@ -16,13 +16,15 @@ The integrated luminosities for the three years cane be found in: `https://twiki
 
 The information for the Run3 luminosity values (the numbers in 'topcoffea/json/lumi.json') and information on the goldenJsons can be found on this twiki: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis'.
 
-The Run3 JSON can be copied from here:
+The Run3 JSONs can be copied from here:
 ```
 /afs/cern.ch/cms/CAF/certification/Collisions22/Cert_Collisions2022_355100_362760_Golden.json
+/afs/cern.ch/cms/CAF/certification/Collisions23/Cert_Collisions2023_366442_370790_Golden.json
 ```
-The JSON can then be copied into a .txt file:
+The JSONs can then be copied into a .txt file:
 ```
 cp Cert_Collisions2022_355100_362760_Golden.json Cert_Collisions2022_355100_362760_Golden.txt
+cp Cert_Collisions2023_366442_370790_Golden.json Cert_Collisions2023_366442_370790_Golden.txt
 ```
 
 

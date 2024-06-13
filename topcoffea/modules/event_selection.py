@@ -31,9 +31,12 @@ def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict,er
     # The triggers for 2016 and 2016APV are the same
     if year == "2016APV":
         year = "2016"
-    #The trigger list for 2022 and 2022EE are the same
+    # The triggers for 2022 and 2022EE are the same
     if year == "2022EE":
         year = "2022"
+    # The triggers for 2023 and 2023BPix are the same
+    if year == "2023BPix":
+        year = "2023"
 
     # Initialize ararys and lists, get trg pass info from events
     trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=bool) # Array of False the len of events

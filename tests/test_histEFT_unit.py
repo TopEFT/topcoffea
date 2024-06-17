@@ -1,8 +1,10 @@
-import awkward as ak
-import hist
+import dask.array as da
+import hist.dask as dah
+import dask
 from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.WCPoint import WCPoint
 from topcoffea.modules.WCFit import WCFit
+import copy
 
 
 def fval(xvals=[], svals=[]):
@@ -310,18 +312,21 @@ def test_histeft():
     units = 0
 
     h_base = HistEFT(
-        hist.axis.StrCategory([], name="process", growth=True),
-        hist.axis.Regular(name="n", label="", bins=1, start=0, stop=1),
+        ["process"],
+        dense_axis=dah.Hist.new.Reg(name="n", label="", bins=1, start=0, stop=1),
         label="h_base",
         wc_names=wc_names[1:],
     )
 
-    val = ak.Array([0.5])
-    sconst = [sconst + sconst]
-    h_base.fill(n=val, process="test", eft_coeff=ak.Array(sconst))
+    val = da.from_array([0.5])
+    sconst = da.from_array([sconst + sconst])
+
+    h_base.fill(n=val, process="test", eft_coeff=sconst)
+
+    (output_h,) = dask.compute(h_base)
 
     expected = 1.0
-    result = h_base["test", 0j, 0]  # 0j is first bucket of dense axis, 0 is first wc.
+    result = output_h[("test",)][0, 0]  # 0 first bucket of dense axis, 0 is first wc.
 
     unit_chk = abs(result - expected) < tolerance
     all_chks += unit_chk
@@ -338,7 +343,7 @@ def test_histeft():
 
     expected = fit_1.EvalPoint(chk_pt)
 
-    result = h_base.eval(chk_vals)[("test",)][1]
+    result = output_h.eval(chk_vals)[("test",)][1]
 
     unit_chk = abs(result - expected) < tolerance
     all_chks += unit_chk
@@ -360,7 +365,7 @@ def test_histeft():
     chk_pt.SetStrength(wc_name, chk_x)
 
     expected = fit_1.EvalPoint(chk_pt)
-    result = h_base.eval(chk_vals)[("test",)][1]
+    result = output_h.eval(chk_vals)[("test",)][1]
 
     unit_chk = abs(result - expected) < tolerance
     all_chks += unit_chk
@@ -376,7 +381,8 @@ def test_histeft():
 
     ###########################
 
-    h_base.fill(n=val, process="test", eft_coeff=[ak.Array(sconst) * 2])
+    h_base.fill(n=val, process="test", eft_coeff=sconst * 2)
+    (output_h,) = dask.compute(h_base)
 
     # First make sure the original WCFits weren't messed with
     expected = chk_y + 2 * chk_y
@@ -400,7 +406,7 @@ def test_histeft():
 
     # Now check that the TH1EFT actually worked
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
-    result = h_base.eval(chk_vals)[("test",)][1]
+    result = output_h.eval(chk_vals)[("test",)][1]
 
     unit_chk = abs(result - expected) < tolerance
     all_chks += unit_chk
@@ -416,7 +422,7 @@ def test_histeft():
 
     ###########################
 
-    h_new = h_base.copy()
+    output_h_new = copy.deepcopy(output_h)
 
     chk_x = 0.975
     chk_y = s00 * 1.0 + s10 * chk_x + s11 * chk_x * chk_x
@@ -425,7 +431,7 @@ def test_histeft():
 
     # First check that h_new has the right value
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
-    result = h_base.eval(chk_vals)[("test",)][1]
+    result = output_h.eval(chk_vals)[("test",)][1]
 
     unit_chk = abs(result - expected) < tolerance
     all_chks += unit_chk
@@ -446,7 +452,7 @@ def test_histeft():
 
     # Next check that the h_base was unaffected when we scaled h_new
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
-    result = h_base.eval(chk_vals)[("test",)][1]
+    result = output_h.eval(chk_vals)[("test",)][1]
 
     unit_chk = abs(result - expected) < tolerance
     all_chks += unit_chk
@@ -463,8 +469,9 @@ def test_histeft():
     # Check HistEFT.add()
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)  # fits for h_base
     expected += fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)  # fits for h_new
-    h_base += h_new
-    result = h_base.eval(chk_vals)[("test",)][1]
+
+    output_h += output_h_new
+    result = output_h.eval(chk_vals)[("test",)][1]
 
     unit_chk = abs(result - expected) < tolerance
     all_chks += unit_chk
@@ -485,7 +492,7 @@ def test_histeft():
     chk_pt.SetStrength(wc_name, chk_x)
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
     expected += fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
-    result = h_base.eval(chk_vals)[("test",)][1]
+    result = output_h.eval(chk_vals)[("test",)][1]
 
     unit_chk = abs(result - expected) < tolerance
     all_chks += unit_chk

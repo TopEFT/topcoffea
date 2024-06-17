@@ -1,9 +1,7 @@
 #! /usr/bin/env python
 
 import hist
-import boost_histogram as bh
 import dask
-import dask.array as da
 import hist.dask as dah
 import copy
 
@@ -20,8 +18,8 @@ class SparseHist():
     """Histogram specialized for sparse categorical data. This dask version only supports fills.
     Any other computation should be done SparseHist after calling dask.compute. """
 
-    def __init__(self, category_names, dense_axes, labels=None, **kwargs):
-        """SparseHistDask initialization is similar to hist.Hist, with the following restrictions:
+    def __init__(self, category_names, dense_axes, category_labels=None, **kwargs):
+        """SparseHist initialization is similar to hist.Hist, with the following restrictions:
         - Categorical axes are just given by their name.
         - kwargs: Same as for hist.dask.Hist
         """
@@ -30,16 +28,19 @@ class SparseHist():
         self._dense_axes = list(dense_axes)
         self._n_categories = len(self._category_names)
         self._dense_hists = defaultdict(lambda: self.make_dense())
-        if labels:
-            self._label_dict = dict(labels)
+        if category_labels:
+            self._label_dict = dict(category_labels)
         else:
             self._label_dict = {}
+
+    def __str__(self):
+        return repr(self)
 
     def make_dense(self):
         return dah.Hist(*self.dense_axes)
 
-    def __str__(self):
-        return repr(self)
+    def label(self, category_name):
+        return self._label_dict.get(category_name, category_name)
 
     @property
     def category_names(self):
@@ -81,13 +82,13 @@ class SparseHist():
         return post, ()
 
 
-class SparseHistResult():
-    def __init__(self, category_names, histograms=None, dense_axes=None, labels=None):
+class SparseHistResult(SparseHist):
+    def __init__(self, category_names, histograms=None, dense_axes=None, category_labels=None):
         """Result from compute of SparseHist.
         - histograms is a dictionary
         """
         if (not histograms and not dense_axes):
-            raise ValueError("Exactly only one of histograms or dense_axes should be specified.")
+            raise ValueError("At least one one of histograms or dense_axes should be specified.")
 
         self._dense_axes = dense_axes
         if not dense_axes:
@@ -99,19 +100,12 @@ class SparseHistResult():
         self._dense_hists = defaultdict(lambda: self.make_dense())
 
         self._label_dict = None
-        if labels:
-            self._label_dict = dict(labels)
+        if category_labels:
+            self._label_dict = dict(category_labels)
 
         if histograms:
             for k, h in histograms.items():
                 self._dense_hists[k] = h
-
-    def _check_args(self, category_names):
-        if not all(isinstance(name, str) for name in category_names):
-            raise ValueError("All category names should be strings")
-
-    def label(self, category_name):
-        return self._label_dict.get(category_name, category_name)
 
     def __getattr__(self, name):
         def fn(*args, **kwargs):
@@ -182,10 +176,6 @@ class SparseHistResult():
 
     def __str__(self):
         return repr(self)
-
-    @property
-    def category_names(self):
-        return self._category_names
 
     @property
     def dense_axes(self):

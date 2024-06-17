@@ -14,16 +14,8 @@ from collections import defaultdict
 from typing import Mapping, Union, Sequence
 
 
-class SparseHist():
-    """Histogram specialized for sparse categorical data. This dask version only supports fills.
-    Any other computation should be done SparseHist after calling dask.compute. """
-
-    def __init__(self, category_names, dense_axes, category_labels=None, **kwargs):
-        """SparseHist initialization is similar to hist.Hist, with the following restrictions:
-        - Categorical axes are just given by their name.
-        - kwargs: Same as for hist.dask.Hist
-        """
-        self._init_args = dict(kwargs)
+class SparseBase():
+    def __init__(self, category_names, dense_axes, category_labels=None):
         self._category_names = list(category_names)
         self._dense_axes = list(dense_axes)
         self._n_categories = len(self._category_names)
@@ -37,10 +29,14 @@ class SparseHist():
         return repr(self)
 
     def make_dense(self):
-        return dah.Hist(*self.dense_axes)
+        return NotImplemented
 
     def label(self, category_name):
         return self._label_dict.get(category_name, category_name)
+
+    @property
+    def categorical_keys(self):
+        return sorted(self._dense_hists.keys())
 
     @property
     def category_names(self):
@@ -53,10 +49,23 @@ class SparseHist():
     def fill(self, weight=None, sample=None, threads=None, **kwargs):
         cats = tuple(kwargs.pop(cat) for cat in self.category_names)
         h = self._dense_hists[cats]
-
         return h.fill(**kwargs, weight=weight, sample=sample, threads=threads)
 
+
+class SparseHist(SparseBase):
+    """Histogram specialized for sparse categorical data. This dask version only supports fills.
+    Any other computation should be done SparseHist after calling dask.compute. """
+
     __dask_scheduler__ = staticmethod(dask.threaded.get)
+
+    def __init__(self, category_names, dense_axes, category_labels=None):
+        """SparseHist initialization is similar to hist.Hist, with the following restrictions:
+        - Categorical axes are just given by their name.
+        """
+        super().__init__(category_names, dense_axes, category_labels)
+
+    def make_dense(self):
+        return dah.Hist(*self.dense_axes)
 
     def __dask_graph__(self):
         dsk = {}
@@ -82,7 +91,7 @@ class SparseHist():
         return post, ()
 
 
-class SparseHistResult(SparseHist):
+class SparseHistResult(SparseBase):
     def __init__(self, category_names, histograms=None, dense_axes=None, category_labels=None):
         """Result from compute of SparseHist.
         - histograms is a dictionary
@@ -90,19 +99,11 @@ class SparseHistResult(SparseHist):
         if (not histograms and not dense_axes):
             raise ValueError("At least one one of histograms or dense_axes should be specified.")
 
-        self._dense_axes = dense_axes
         if not dense_axes:
             first = next(iter(histograms.values()))
-            self._dense_axes = list(first.axes)
+            dense_axes = list(first.axes)
 
-        self._category_names = category_names
-        self._n_categories = len(self._category_names)
-        self._dense_hists = defaultdict(lambda: self.make_dense())
-
-        self._label_dict = None
-        if category_labels:
-            self._label_dict = dict(category_labels)
-
+        super().__init__(category_names, dense_axes, category_labels)
         if histograms:
             for k, h in histograms.items():
                 self._dense_hists[k] = h
@@ -173,23 +174,6 @@ class SparseHistResult(SparseHist):
             other[k] = self.make_dense()
             other[k] += h
         return other
-
-    def __str__(self):
-        return repr(self)
-
-    @property
-    def dense_axes(self):
-        return self._dense_axes
-
-    @property
-    def categorical_keys(self):
-        return sorted(self._dense_hists.keys())
-
-    def fill(self, weight=None, sample=None, threads=None, **kwargs):
-        cats = tuple(kwargs.pop(cat) for cat in self.category_names)
-        h = self._dense_hists[cats]
-
-        return h.fill(**kwargs, weight=weight, sample=sample, threads=threads)
 
     def __setitem__(self, key, value):
         if not isinstance(key, tuple) or len(key) != self._n_categories:
@@ -350,7 +334,7 @@ class SparseHistResult(SparseHist):
 
     @classmethod
     def _read_from_reduce(cls, cat_axes, dense_axes, labels, cat_keys, dense_values):
-        return cls(cat_axes, dense_axes=dense_axes, labels=labels, histograms={k: h for k, h in zip(cat_keys, dense_values)})
+        return cls(cat_axes, dense_axes=dense_axes, category_labels=labels, histograms={k: h for k, h in zip(cat_keys, dense_values)})
 
     def __iadd__(self, other):
         return self._ibinary_op(other, "__iadd__")

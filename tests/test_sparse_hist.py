@@ -17,7 +17,19 @@ data_ptz_b = dask.array.random.random_integers(low=100, high=500, size=1200)
 def make_hist():
     h = SparseHist(["process", "channel"], dense_axes=[dah.Hist.new.Reg(nbins, 0, 600, name="ptz")])
     h.fill(process="ttH", channel="ch0", ptz=data_ptz)
+    return h
 
+
+def make_hist_two_axes():
+    h = SparseHist(
+        ["process", "channel"],
+        dense_axes=[
+            dah.Hist.new.Reg(nbins, 0, 600, name="ptz_a"),
+            dah.Hist.new.Reg(nbins, 0, 600, name="ptz_b"),
+        ],
+    )
+
+    h.fill(process="ttH", channel="ch0", ptz_a=data_ptz, ptz_b=data_ptz)
     return h
 
 
@@ -159,3 +171,13 @@ def test_assignment():
         h2[k] = output_h[k]
 
     assert np.all(np.abs(output_h.values(flow=True) - h2.values(flow=True) < 1e-10))
+
+
+def test_two_axes():
+    h = make_hist_two_axes()
+    (output_h,) = dask.compute(h)
+
+    ones = ak.Array(np.identity(nbins))
+    values = output_h.values(flow=False)
+
+    assert ak.all(ak.ravel(values) == ak.ravel(ones))

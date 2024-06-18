@@ -85,7 +85,7 @@ class SparseHist():
         return self.state.fill(weight=weight, sample=sample, threads=threads, **kwargs)
 
 
-class SparseHistResult(SparseState):
+class SparseHistResult():
     def __init__(self, category_names, histograms=None, dense_axes=None, category_labels=None, state_cls=SparseState):
         """Result from compute of SparseHist.
         - histograms is a dictionary
@@ -338,6 +338,9 @@ class SparseHistResult(SparseState):
             histograms={k: h for k, h in zip(cat_keys, dense_values)},
             state_cls=state_cls,
         )
+
+    def fill(self, weight=None, sample=None, threads=None, **kwargs):
+        return self.state.fill(weight=weight, sample=sample, threads=threads, **kwargs)
 
     def __iadd__(self, other):
         return self._ibinary_op(other, "__iadd__")

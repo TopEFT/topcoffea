@@ -509,3 +509,26 @@ def test_histeft():
 
     print(f"Passed Checks: {all_chks}/{units}")
     assert all_chks == units
+
+
+def test_as_hist():
+    s00 = 1.0
+    s10 = 1.5
+    s11 = 1.25
+    sconst = [s00, s10, s11]
+
+    val = da.from_array([0.5])
+    sconst = da.from_array([sconst + sconst])
+
+    h_base = HistEFT(
+        ["process"],
+        dense_axis=dah.Hist.new.Reg(name="n", label="", bins=1, start=0, stop=1),
+        category_labels="h_base",
+        wc_names=["ctG", "ctZ"],
+    )
+
+    h_base.fill(n=val, process="test", eft_coeff=sconst)
+    (output_h,) = dask.compute(h_base)
+
+    reg_hist = output_h.as_hist({"ctG": 1, "ctZ": 0})
+    print(reg_hist)

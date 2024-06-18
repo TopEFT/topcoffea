@@ -334,14 +334,22 @@ class HistEFTResult(SparseHistResult):
         overflow: bool
             Whether to include under and overflow bins.
         """
+        first = next(iter(self.state.dense_hists.values()))
+        dense_axes = first.axes
+
+        cat_axes = []
+        for i, name in enumerate(self.state.category_names):
+            vs = [key[i] for key in self.state.categorical_keys]
+            cat_axes.append(hist.axis.StrCategory(vs, name=name, growth=True))
+
         evals = self.eval(values=values)
         nhist = hist.Hist(
-            *[axis for axis in self.axes if axis != self._coeff_axis], **self._init_args
+            *cat_axes,
+            *[axis for axis in dense_axes if axis.name != self.state.coeff_axis.name]
         )
 
-        sparse_names = self.categorical_axes.name
         for sp_val, arrs in evals.items():
-            sp_key = dict(zip(sparse_names, sp_val))
+            sp_key = dict(zip(self.state.category_names, sp_val))
             nhist[sp_key] = arrs
         return nhist
 

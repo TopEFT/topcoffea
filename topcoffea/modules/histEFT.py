@@ -3,10 +3,11 @@
 import hist
 import numpy as np
 import dask.array as da
+import dask
 
 from typing import Any, List, Mapping, Union
 
-from topcoffea.modules.sparseHist import SparseHist, SparseHistResult
+from topcoffea.modules.sparseHist import SparseBase, SparseHist, SparseHistResult
 import topcoffea.modules.eft_helper as efth
 
 try:
@@ -17,7 +18,73 @@ except ImportError:
     Self = Any
 
 
-class HistEFT(SparseHist):
+class HistEFTBase(SparseBase):
+    def __init__(
+        self,
+        category_names,
+        dense_axis,
+        category_labels=None,
+        wc_names: Union[List[str], None] = None,
+        **kwargs,
+    ) -> None:
+        """HistEFT initialization is similar to hist.Hist, with the following restrictions:
+        - Exactly one axis can be dense (i.e. hist.axis.Regular, hist.axis.Variable, or his.axis.Integer)
+        - The dense axis should be the last specified in the list of arguments.
+        - Categorical axes should be specified with growth=True.
+        """
+
+        if not wc_names:
+            wc_names = []
+
+        n = len(wc_names)
+        self._wc_names = {n: i for i, n in enumerate(wc_names)}
+        self._wc_count = n
+        self._quad_count = efth.n_quad_terms(n)
+
+        self._init_args_eft = {"wc_names": wc_names}
+
+        self._needs_rebinning = kwargs.pop("rebin", False)
+        if self._needs_rebinning:
+            raise ValueError("Do not know how to rebin yet...")
+
+        kwargs.setdefault("storage", "Double")
+        if kwargs["storage"] != "Double":
+            raise ValueError("only 'Double' storage is supported")
+
+        if "quadratic_term" in kwargs:
+            self._coeff_axis = kwargs.pop("quadratic_term")
+        else:
+            # no axis for quadratic_term found, creating our own.
+            self._coeff_axis = hist.axis.Integer(
+                start=0, stop=self._quad_count, name="quadratic_term"
+            )
+
+        # need to use this weird construct because dense_axis is proxy
+        self._dense_axis = dense_axis.axes[0]
+
+        reserved_names = ["quadratic_term", "sample", "weight", "thread"]
+        if any(name in reserved_names for name in category_names):
+            raise ValueError(
+                f"No axis may have one of the following names: {','.join(reserved_names)}"
+            )
+        super().__init__(category_names, dense_axes=[self._dense_axis, self._coeff_axis], **kwargs)
+
+    @property
+    def wc_names(self):
+        return list(self._wc_names)
+
+    def index_of_wc(self, wc: str):
+        return self._wc_names[wc]
+
+    def should_rebin(self):
+        return self._needs_rebinning
+
+    @property
+    def dense_axis(self):
+        return self._dense_axis
+
+
+class HistEFT(HistEFTBase):
     """Histogram specialized to hold Wilson Coefficients.
     Example:
     h = HistEFT(

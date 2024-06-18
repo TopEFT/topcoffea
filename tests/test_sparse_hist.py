@@ -1,6 +1,7 @@
 from topcoffea.modules.sparseHist import SparseHist
 import dask
 import hist.dask as dah
+import copy
 
 import numpy as np
 import awkward as ak
@@ -166,7 +167,7 @@ def test_assignment():
     h = make_hist()
     (output_h,) = dask.compute(h)
 
-    h2 = output_h.empty_from_axes()
+    h2 = copy.copy(output_h)
     for k in output_h.categorical_keys:
         h2[k] = output_h[k]
 

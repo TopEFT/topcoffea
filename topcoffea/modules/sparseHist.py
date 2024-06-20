@@ -8,10 +8,8 @@ import copy
 import awkward as ak
 import numpy as np
 
-from itertools import chain, product
+from itertools import chain
 from collections import defaultdict
-
-from typing import Mapping, Union, Sequence
 
 
 class SparseState:

@@ -34,10 +34,6 @@ class SparseState:
             yield a
 
     @property
-    def axes(self):
-        return []
-
-    @property
     def n_categories(self):
         return len(self._bookkeep.axes)
 

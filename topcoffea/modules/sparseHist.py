@@ -127,7 +127,7 @@ class SparseHistResult():
         return self.state.category_keys
 
     def op_as_dict(self, op):
-        return {key: op(self.state.dense_hists[key]) for key in self.state.categorical_keys}
+        return {key: op(self.state.dense_hists[key]) for key in self.state.category_keys}
 
     def apply_to_dense(self, method_name, *args, **kwargs):
         return self._ak_rec_op(lambda h: h.__getattribute__(method_name)(*args, **kwargs))
@@ -368,12 +368,13 @@ class SparseHistResult():
         )
 
     @classmethod
-    def _read_from_reduce(cls, cat_axes, dense_axes, cat_keys, dense_values, state_cls):
+    def _read_from_reduce(cls, cat_axes, dense_axes, cat_keys, dense_values, state_cls, **kwargs):
         return cls(
             cat_axes,
             dense_axes=dense_axes,
             histograms={k: h for k, h in zip(cat_keys, dense_values)},
             state_cls=state_cls,
+            **kwargs,
         )
 
     def fill(self, weight=None, sample=None, threads=None, **kwargs):

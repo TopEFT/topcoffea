@@ -24,11 +24,10 @@ except ImportError:
 class HistEFTState(SparseState):
     def __init__(
         self,
-        category_names,
+        category_axes,
         dense_axis,
         hist_cls,
         array_backend,
-        category_labels=None,
         wc_names: Union[List[str], None] = None,
         **kwargs,
     ) -> None:
@@ -67,11 +66,11 @@ class HistEFTState(SparseState):
             self.dense_axis_name = dense_axis.axes[0].name
 
         reserved_names = ["quadratic_term", "sample", "weight", "thread"]
-        if any(name in reserved_names for name in chain([self.dense_axis_name], category_names)):
+        if any(name in reserved_names for name in chain([self.dense_axis_name], [a.name for a in category_axes])):
             raise ValueError(
                 f"No axis may have one of the following names: {','.join(reserved_names)}"
             )
-        super().__init__(category_names, dense_axes=[self.dense_axis, self.coeff_axis], hist_cls=hist_cls, **kwargs)
+        super().__init__(category_axes, dense_axes=[self.dense_axis, self.coeff_axis], hist_cls=hist_cls, **kwargs)
 
     def index_of_wc(self, wc: str):
         return self.wc_names[wc]
@@ -162,8 +161,7 @@ class HistEFT(SparseHist):
     """Histogram specialized to hold Wilson Coefficients.
     Example:
     h = HistEFT(
-            ["process"],
-            category_labels={},
+            category_axes=[hist.axis.StrCategory([], name="process", growth=True)]
             dense_axis=hist.dask.Hist.new.Reg(
                                         name="ht",
                                         label="ht [GeV]",
@@ -213,9 +211,8 @@ class HistEFT(SparseHist):
 
     def __init__(
         self,
-        category_names,
+        category_axes,
         dense_axis,
-        category_labels=None,
         wc_names: Union[List[str], None] = None,
         state_cls=HistEFTState,
     ) -> None:
@@ -225,11 +222,10 @@ class HistEFT(SparseHist):
         - Categorical axes should be specified with growth=True.
         """
         self.state = state_cls(
-            category_names,
+            category_axes,
             dense_axis=dense_axis,
             array_backend=da,
             hist_cls=dah.Hist,
-            category_labels=category_labels,
             wc_names=wc_names,
         )
 
@@ -239,7 +235,7 @@ class HistEFT(SparseHist):
         def post(vs):
             pairs = sorted((k, h) for (k, h) in vs[0])
             return HistEFTResult(
-                self.state.category_names,
+                self.state.category_axes,
                 histograms={k: h for (k, h) in pairs},
                 wc_names=self.state.wc_names,
             )
@@ -260,10 +256,9 @@ class HistEFT(SparseHist):
 class HistEFTResult(SparseHistResult):
     def __init__(
             self,
-            category_names,
+            category_axes,
             histograms=None,
             dense_axis=None,
-            category_labels=None,
             wc_names: Union[List[str], None] = None,
             state_cls=HistEFTState,
             ) -> None:
@@ -278,11 +273,10 @@ class HistEFTResult(SparseHistResult):
             dense_axis = first.axes[0]
 
         self.state = state_cls(
-            category_names,
+            category_axes,
             dense_axis=dense_axis,
             array_backend=np,
             hist_cls=hist.Hist,
-            category_labels=category_labels,
             wc_names=wc_names,
         )
         if histograms:
@@ -337,14 +331,9 @@ class HistEFTResult(SparseHistResult):
         first = next(iter(self.state.dense_hists.values()))
         dense_axes = first.axes
 
-        cat_axes = []
-        for i, name in enumerate(self.state.category_names):
-            vs = [key[i] for key in self.state.categorical_keys]
-            cat_axes.append(hist.axis.StrCategory(vs, name=name, growth=True))
-
         evals = self.eval(values=values)
         nhist = hist.Hist(
-            *cat_axes,
+            *list(self.state.category_axes),
             *[axis for axis in dense_axes if axis.name != self.state.coeff_axis.name]
         )
 
@@ -354,22 +343,27 @@ class HistEFTResult(SparseHistResult):
         return nhist
 
     def __reduce__(self):
-        args = dict(self._init_args)
-        args.update(self._init_args_eft)
-
         return (
             type(self)._read_from_reduce,
             (
-                list(self.categorical_axes),
-                [self.dense_axis],
-                args,
-                self._dense_hists,
+                list(self.state.category_axes),
+                self.state.dense_axis,
+                list(self.state.dense_hists.keys()),
+                list(self.state.dense_hists.values()),
+                type(self.state),
+                list(self.state.wc_names),
             ),
         )
 
     @classmethod
-    def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
-        return super()._read_from_reduce(cat_axes, dense_axes, init_args, dense_hists)
+    def _read_from_reduce(cls, cat_axes, dense_axis, cat_keys, dense_values, state_cls, wc_names):
+        return cls(
+            cat_axes,
+            dense_axis=dense_axis,
+            histograms={k: h for k, h in zip(cat_keys, dense_values)},
+            state_cls=state_cls,
+            wc_names=wc_names,
+        )
 
     # this method should be moved to eft_helper once HistEFT is replaced.
     # the only change is that hist.view includes a under/overflow columns, thus
@@ -416,9 +410,8 @@ class HistEFTResult(SparseHistResult):
     def __copy__(self):
         """Empty histograms with the same bins."""
         other = type(self)(
-            category_names=self.state.category_names,
+            category_axes=self.state.category_axes,
             dense_axis=self.state.dense_axis,
-            category_labels=self.state.category_labels,
             state_cls=type(self.state),
             wc_names=self.state.wc_names,
         )

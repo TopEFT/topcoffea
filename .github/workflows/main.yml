@@ -65,5 +65,5 @@ jobs:
 
       - name: Test histEFT
         run: |
-          conda run -n topcoffea-env pytest tests/test_HistEFT_add.py
+          conda run -n topcoffea-env pytest tests/test_histEFT_add.py
 

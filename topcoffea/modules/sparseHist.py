@@ -15,17 +15,38 @@ from typing import Mapping, Union, Sequence
 
 
 class SparseState():
-    def __init__(self, category_names, dense_axes, hist_cls, category_labels=None):
-        self.category_names = list(category_names)
-        self.dense_axes = list(dense_axes)
-        self.n_categories = len(self.category_names)
+    def __init__(self, category_axes, dense_axes, hist_cls):
+        """
+        category_axes: List of categorical axes. They should be of type hist.axes.* (i.e., not dask-aware).
+        dense_axes: List of dense axes. Either all or none may be dask-aware.
+        hist_cls: Type of histogram (e.g. hist.Hist or hist.dask.Hist)
+        """
+        self._dense_axes = list(dense_axes)
         self.dense_hists = defaultdict(lambda: self.make_dense())
         self.hist_cls = hist_cls
+        self._bookkeep = hist.Hist(*category_axes)
 
-        if category_labels:
-            self.category_labels = dict(category_labels)
-        else:
-            self.category_labels = {}
+    @property
+    def category_axes(self):
+        return self._bookkeep.axes
+
+    @property
+    def dense_axes(self):
+        for a in self._dense_axes:
+            yield a
+
+    @property
+    def axes(self):
+        return []
+
+    @property
+    def n_categories(self):
+        return len(self._bookkeep.axes)
+
+    @property
+    def category_names(self):
+        for a in self.category_axes:
+            yield a.name
 
     def __str__(self):
         return repr(self)
@@ -33,16 +54,15 @@ class SparseState():
     def make_dense(self):
         return self.hist_cls(*self.dense_axes)
 
-    def label(self, category_name):
-        return self.category_labels.get(category_name, category_name)
-
     @property
-    def categorical_keys(self):
-        return sorted(self.dense_hists.keys())
+    def category_keys(self):
+        return self.dense_hists.keys()
 
     def fill(self, weight=None, sample=None, threads=None, **kwargs):
-        cats = tuple(kwargs.pop(cat) for cat in self.category_names)
-        h = self.dense_hists[cats]
+        cats = {name: kwargs.pop(name) for name in self.category_names}
+        h = self.dense_hists[tuple(cats.values())]
+
+        self._bookkeep.fill(**cats)
         return h.fill(**kwargs, weight=weight, sample=sample, threads=threads)
 
 
@@ -52,11 +72,10 @@ class SparseHist():
 
     __dask_scheduler__ = staticmethod(dask.threaded.get)
 
-    def __init__(self, category_names, dense_axes, category_labels=None, state_cls=SparseState):
+    def __init__(self, category_axes, dense_axes, state_cls=SparseState):
         """SparseHist initialization is similar to hist.Hist, with the following restrictions:
-        - Categorical axes are just given by their name.
         """
-        self.state = state_cls(category_names, dense_axes, dah.Hist, category_labels)
+        self.state = state_cls(category_axes, dense_axes, dah.Hist)
 
     def __dask_graph__(self):
         dsk = {}
@@ -78,7 +97,7 @@ class SparseHist():
     def __dask_postcompute__(self):
         def post(vs):
             pairs = sorted((k, h) for (k, h) in vs[0])
-            return SparseHistResult(self.state.category_names, histograms={k: h for (k, h) in pairs})
+            return SparseHistResult(self.state.category_axes, histograms={k: h for (k, h) in pairs})
         return post, ()
 
     def fill(self, weight=None, sample=None, threads=None, **kwargs):
@@ -86,7 +105,7 @@ class SparseHist():
 
 
 class SparseHistResult():
-    def __init__(self, category_names, histograms=None, dense_axes=None, category_labels=None, state_cls=SparseState):
+    def __init__(self, category_axes, histograms=None, dense_axes=None, state_cls=SparseState):
         """Result from compute of SparseHist.
         - histograms is a dictionary
         """
@@ -97,15 +116,15 @@ class SparseHistResult():
             first = next(iter(histograms.values()))
             dense_axes = list(first.axes)
 
-        self.state = state_cls(category_names, dense_axes, hist.Hist, category_labels)
+        self.state = state_cls(category_axes, dense_axes, hist.Hist)
 
         if histograms:
             for k, h in histograms.items():
                 self.state.dense_hists[k] += h
 
     @property
-    def categorical_keys(self):
-        return sorted(self.state.dense_hists.keys())
+    def category_keys(self):
+        return self.state.category_keys
 
     def op_as_dict(self, op):
         return {key: op(self.state.dense_hists[key]) for key in self.state.categorical_keys}
@@ -128,7 +147,7 @@ class SparseHistResult():
         return self.op_as_dict(lambda h: h.view(flow=flow))
 
     def _ak_rec_op(self, op_on_dense):
-        all_keys = self.state.categorical_keys
+        all_keys = self.state.category_keys
         builder = ak.ArrayBuilder()
 
         def transverse_cut(index, keys=all_keys):
@@ -138,10 +157,12 @@ class SparseHistResult():
                     last = key[index]
                     yield last
 
+        cats = list(self.state.category_axes)
+
         def rec(key, depth):
-            for k in transverse_cut(depth):
-                next_key = (*key, k) if key else (k,)
-                if depth < len(self.state.category_names) - 1:
+            for v in cats[depth]:
+                next_key = (*key, v) if key else (v,)
+                if depth < self.state.n_categories - 1:
                     with builder.list():
                         rec(next_key, depth + 1)
                 else:
@@ -159,9 +180,8 @@ class SparseHistResult():
     def __copy__(self):
         """Empty histograms with the same bins."""
         other = type(self)(
-            category_names=self.state.category_names,
+            category_axes=self.state.category_axes,
             dense_axes=self.state.dense_axes,
-            category_labels=self.state.category_labels,
             state_cls=type(self.state),
         )
 
@@ -221,9 +241,15 @@ class SparseHistResult():
         if value is None:
             value = sum
 
-        index = self.state.category_names.index(axis_name)
-        new_categories = [n for n in self.state.category_names if n != axis_name]
+        index = list(self.state.category_names).index(axis_name)
         new_hists = defaultdict(lambda: self.state.make_dense())
+
+        new_categories = [
+            type(a)(list(a), name=a.name, label=a.label)
+            for a in self.state.category_axes
+            if a.name != axis_name
+        ]
+
         for k, h, in self.state.dense_hists.items():
             if value == sum or k[index] == value:
                 new_key = (*k[:index], *k[index+1:])
@@ -259,13 +285,26 @@ class SparseHistResult():
         Returns a copy of the histogram with specified bins removed.
         """
         bins = set(bins)
-        index = self.state.category_names.index(axis_name)
+        index = list(self.state.category_names).index(axis_name)
         new_hists = {}
+
+        old_axis = self.state.category_axes[index]
+        new_bins = []
+        for v in old_axis:
+            if v not in bins:
+                new_bins.append(v)
+
+        new_categories = [
+            type(a)(list(a) if a.name != axis_name else new_bins, name=a.name, label=a.label)
+            for a in self.state.category_axes
+            if a.name != axis_name
+        ]
+
         for k, h, in self.state.dense_hists.items():
             if k[index] in bins:
                 continue
             new_hists[k] = h
-        return SparseHistResult(self.state.category_names, histograms=new_hists)
+        return SparseHistResult(new_categories, histograms=new_hists)
 
     def prune(self, axis_name, to_keep):
         """Remove bins from a categorical axis that are not in to_keep
@@ -303,7 +342,7 @@ class SparseHistResult():
             for h in self.state.dense_hists.values():
                 getattr(h, op)(other)
         else:
-            if self.state.category_names != other.state.category_names:
+            if list(self.state.category_names) != list(other.state.category_names):
                 raise ValueError(
                     "Category names are different, or in different order, and therefore cannot be merged."
                 )
@@ -320,9 +359,8 @@ class SparseHistResult():
         return (
             type(self)._read_from_reduce,
             (
-                list(self.state.category_names),
-                self.state.dense_axes,
-                self.state.category_labels,
+                list(self.state.category_axes),
+                list(self.state.dense_axes),
                 list(self.state.dense_hists.keys()),
                 list(self.state.dense_hists.values()),
                 type(self.state),
@@ -330,11 +368,10 @@ class SparseHistResult():
         )
 
     @classmethod
-    def _read_from_reduce(cls, cat_axes, dense_axes, labels, cat_keys, dense_values, state_cls):
+    def _read_from_reduce(cls, cat_axes, dense_axes, cat_keys, dense_values, state_cls):
         return cls(
             cat_axes,
             dense_axes=dense_axes,
-            category_labels=labels,
             histograms={k: h for k, h in zip(cat_keys, dense_values)},
             state_cls=state_cls,
         )

@@ -1,5 +1,6 @@
 from topcoffea.modules.sparseHist import SparseHist
 import dask
+import hist
 import hist.dask as dah
 import copy
 
@@ -16,14 +17,23 @@ data_ptz_b = dask.array.random.random_integers(low=100, high=500, size=1200)
 
 
 def make_hist():
-    h = SparseHist(["process", "channel"], dense_axes=[dah.Hist.new.Reg(nbins, 0, 600, name="ptz")])
+    h = SparseHist(
+        category_axes=[
+            hist.axis.StrCategory([], name="process", growth=True),
+            hist.axis.StrCategory([], name="channel", growth=True),
+        ],
+        dense_axes=[dah.Hist.new.Reg(nbins, 0, 600, name="ptz")],
+    )
     h.fill(process="ttH", channel="ch0", ptz=data_ptz)
     return h
 
 
 def make_hist_two_axes():
     h = SparseHist(
-        ["process", "channel"],
+        category_axes=[
+            hist.axis.StrCategory([], name="process", growth=True),
+            hist.axis.StrCategory([], name="channel", growth=True),
+        ],
         dense_axes=[
             dah.Hist.new.Reg(nbins, 0, 600, name="ptz_a"),
             dah.Hist.new.Reg(nbins, 0, 600, name="ptz_b"),
@@ -75,7 +85,7 @@ def test_index():
     assert output_h[{"process": "ttH", "channel": "ch1", "ptz": 0}] == 2
     assert output_h[{"process": "ttH", "channel": "ch1", "ptz": -1}] == 0
 
-    for key in output_ho.categorical_keys:
+    for key in output_ho.category_keys:
         assert ak.all(
             output_ho[key].values() == output_h[key].values()
         )
@@ -168,7 +178,7 @@ def test_assignment():
     (output_h,) = dask.compute(h)
 
     h2 = copy.copy(output_h)
-    for k in output_h.categorical_keys:
+    for k in output_h.category_keys:
         h2[k] = output_h[k]
 
     assert np.all(np.abs(output_h.values(flow=True) - h2.values(flow=True) < 1e-10))

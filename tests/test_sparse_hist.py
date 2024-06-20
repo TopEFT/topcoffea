@@ -66,7 +66,10 @@ def test_index():
     h = make_hist()
     h.fill(process="ttH", channel="ch1", ptz=data_ptz * 0.5)
     ho = make_hist()
-    (output_h, output_ho,) = dask.compute(h, ho)
+    (
+        output_h,
+        output_ho,
+    ) = dask.compute(h, ho)
 
     # on channel="ch0", counts should be the same pre/post second fill
     assert output_ho["ttH", "ch0", 0] == 1
@@ -86,9 +89,7 @@ def test_index():
     assert output_h[{"process": "ttH", "channel": "ch1", "ptz": -1}] == 0
 
     for key in output_ho.category_keys:
-        assert ak.all(
-            output_ho[key].values() == output_h[key].values()
-        )
+        assert ak.all(output_ho[key].values() == output_h[key].values())
 
 
 def test_integrate():
@@ -110,7 +111,10 @@ def test_remove():
     h = make_hist()
     ho = make_hist()
     ho.fill(process="ttH", channel="ch1", ptz=data_ptz * 0.5)
-    (output_h, output_ho,) = dask.compute(h, ho)
+    (
+        output_h,
+        output_ho,
+    ) = dask.compute(h, ho)
 
     removed = output_ho.remove("channel", ["ch1"])
 

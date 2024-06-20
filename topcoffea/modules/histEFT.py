@@ -66,11 +66,19 @@ class HistEFTState(SparseState):
             self.dense_axis_name = dense_axis.axes[0].name
 
         reserved_names = ["quadratic_term", "sample", "weight", "thread"]
-        if any(name in reserved_names for name in chain([self.dense_axis_name], [a.name for a in category_axes])):
+        if any(
+            name in reserved_names
+            for name in chain([self.dense_axis_name], [a.name for a in category_axes])
+        ):
             raise ValueError(
                 f"No axis may have one of the following names: {','.join(reserved_names)}"
             )
-        super().__init__(category_axes, dense_axes=[self.dense_axis, self.coeff_axis], hist_cls=hist_cls, **kwargs)
+        super().__init__(
+            category_axes,
+            dense_axes=[self.dense_axis, self.coeff_axis],
+            hist_cls=hist_cls,
+            **kwargs,
+        )
 
     def index_of_wc(self, wc: str):
         return self.wc_names[wc]
@@ -101,7 +109,9 @@ class HistEFTState(SparseState):
         # into:
         # [0, 1, 2, ..., 0, 1, 2 ...,]
         # repeated n_events times.
-        return self.array_backend.broadcast_to(np.ogrid[0: self.quad_count], (n_events, self.quad_count)).ravel()
+        return self.array_backend.broadcast_to(
+            np.ogrid[0 : self.quad_count], (n_events, self.quad_count)
+        ).ravel()
 
     def fill(
         self,
@@ -109,7 +119,7 @@ class HistEFTState(SparseState):
         sample=None,
         threads=None,
         eft_coeff: ArrayLike = None,  # [num of events x (num of wc coeffs + 1)]
-        **kwargs
+        **kwargs,
     ) -> Self:
         """
         Insert data into the histogram using names and indices, return
@@ -127,8 +137,8 @@ class HistEFTState(SparseState):
         """
 
         if eft_coeff is None:
-            eft_coeff = 1    # if no eft_coeff, then it is simply sm, which does not weight the event
-            indices = 0      # instead of an array, just fill the first coefficint (sm)
+            eft_coeff = 1  # if no eft_coeff, then it is simply sm, which does not weight the event
+            indices = 0  # instead of an array, just fill the first coefficint (sm)
 
         # if weight is also given, comine it with eft_coeff. We use weight in the call to fill to pass the
         # coefficients
@@ -248,25 +258,29 @@ class HistEFT(SparseHist):
         sample=None,
         threads=None,
         eft_coeff: ArrayLike = None,  # [num of events x (num of wc coeffs + 1)]
-        **kwargs
+        **kwargs,
     ) -> Self:
-        self.state.fill(weight=weight, sample=sample, threads=threads, eft_coeff=eft_coeff, **kwargs)
+        self.state.fill(
+            weight=weight, sample=sample, threads=threads, eft_coeff=eft_coeff, **kwargs
+        )
 
 
 class HistEFTResult(SparseHistResult):
     def __init__(
-            self,
-            category_axes,
-            histograms=None,
-            dense_axis=None,
-            wc_names: Union[List[str], None] = None,
-            state_cls=HistEFTState,
-            ) -> None:
+        self,
+        category_axes,
+        histograms=None,
+        dense_axis=None,
+        wc_names: Union[List[str], None] = None,
+        state_cls=HistEFTState,
+    ) -> None:
         """Result from compute of SparseHist.
         - histograms is a dictionary
         """
-        if (not histograms and not dense_axis):
-            raise ValueError("At least one one of histograms or dense_axis should be specified.")
+        if not histograms and not dense_axis:
+            raise ValueError(
+                "At least one one of histograms or dense_axis should be specified."
+            )
 
         if not dense_axis:
             first = next(iter(histograms.values()))
@@ -334,7 +348,7 @@ class HistEFTResult(SparseHistResult):
         evals = self.eval(values=values)
         nhist = hist.Hist(
             *list(self.state.category_axes),
-            *[axis for axis in dense_axes if axis.name != self.state.coeff_axis.name]
+            *[axis for axis in dense_axes if axis.name != self.state.coeff_axis.name],
         )
 
         for sp_val, arrs in evals.items():
@@ -356,7 +370,9 @@ class HistEFTResult(SparseHistResult):
         )
 
     @classmethod
-    def _read_from_reduce(cls, cat_axes, dense_axis, cat_keys, dense_values, state_cls, wc_names):
+    def _read_from_reduce(
+        cls, cat_axes, dense_axis, cat_keys, dense_values, state_cls, wc_names
+    ):
         return cls(
             cat_axes,
             dense_axis=dense_axis,
@@ -403,9 +419,11 @@ class HistEFTResult(SparseHistResult):
         sample=None,
         threads=None,
         eft_coeff: ArrayLike = None,  # [num of events x (num of wc coeffs + 1)]
-        **kwargs
+        **kwargs,
     ) -> Self:
-        self.state.fill(weight=weight, sample=sample, threads=threads, eft_coeff=eft_coeff, **kwargs)
+        self.state.fill(
+            weight=weight, sample=sample, threads=threads, eft_coeff=eft_coeff, **kwargs
+        )
 
     def __copy__(self):
         """Empty histograms with the same bins."""

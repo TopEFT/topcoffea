@@ -4,7 +4,6 @@ from collections import defaultdict
 
 from topcoffea.modules.histEFT import HistEFT
 
-
 np.set_printoptions(linewidth=100, formatter={"float_kind": lambda x: f"{x:7.3f}"})
 
 

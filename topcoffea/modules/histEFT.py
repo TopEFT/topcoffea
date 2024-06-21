@@ -114,7 +114,8 @@ class HistEFTState(SparseState):
         # [0, 1, 2, ..., 0, 1, 2 ...,]
         # repeated n_events times.
         return self.array_backend.broadcast_to(
-            np.ogrid[0 : self.quad_count], (n_events, self.quad_count),
+            np.ogrid[0 : self.quad_count],
+            (n_events, self.quad_count),
         ).ravel()
 
     def fill(
@@ -149,7 +150,7 @@ class HistEFTState(SparseState):
 
         if eft_coeff is None:
             eft_coeff = 1  # if no eft_coeff, then it is simply sm, which does not weight the event
-            indices = 0    # instead of an array, just fill the first coefficint (sm)
+            indices = 0  # instead of an array, just fill the first coefficint (sm)
         else:
             # index for coefficient axes.
             # [ 0, 1, 2, ..., 0, 1, 2, ...]
@@ -172,7 +173,12 @@ class HistEFTState(SparseState):
         # [e0,      e0,      e0    ..., e1,     e1,     e1,     ...]
         # [ 0,      1,       2,    ..., 0,      1,      2,      ...]
         # [c00*w0, c01*w0, c02*w0, ..., c10*w1, c11*w1, c12*w1, ...]
-        super().fill(quadratic_term=indices, **{self.dense_axis_name: events}, weight=eft_coeff, **kwargs)
+        super().fill(
+            quadratic_term=indices,
+            **{self.dense_axis_name: events},
+            weight=eft_coeff,
+            **kwargs,
+        )
 
 
 class HistEFT(SparseHist):

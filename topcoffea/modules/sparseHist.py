@@ -48,6 +48,9 @@ class SparseState:
     def make_dense(self):
         return self.hist_cls(*self.dense_axes)
 
+    def extra_constructor_args(self):
+        return {}
+
     @property
     def category_keys(self):
         return self.dense_hists.keys()
@@ -256,7 +259,7 @@ class SparseHistResult:
         new_categories = [
             type(a)(list(a), name=a.name, label=a.label)
             for a in self.state.category_axes
-            if a.name != axis_name
+            if a.name != axis_name or value != sum
         ]
 
         for (
@@ -266,7 +269,7 @@ class SparseHistResult:
             if value == sum or k[index] == value:
                 new_key = (*k[:index], *k[index + 1 :])
                 new_hists[new_key] += h
-        return SparseHistResult(new_categories, histograms=new_hists)
+        return type(self)(new_categories, histograms=new_hists, **self.state.extra_constructor_args())
 
     def group(self, axis_name: str, groups: dict[str, list[str]]):
         """Generate a new SparseHistResult where bins of axis are merged
@@ -276,7 +279,22 @@ class SparseHistResult:
         for g, ms in groups.items():
             for m in ms:
                 rev_map[m] = g
-        index = self.state.category_names.index(axis_name)
+        index = list(self.state.category_names).index(axis_name)
+
+        old_axis = self.state.category_axes[index]
+        new_bins = []
+        for v in old_axis:
+            if v not in rev_map:
+                new_bins.append(v)
+        new_bins.extend(groups.keys())
+
+        new_categories = [
+            type(a)(
+                list(a) if a.name != axis_name else new_bins, name=a.name, label=a.label
+            )
+            for a in self.state.category_axes
+        ]
+
         new_hists = defaultdict(lambda: self.state.make_dense())
         for (
             k,
@@ -285,7 +303,11 @@ class SparseHistResult:
             new_name = rev_map.get(k[index], k[index])
             new_key = (*k[:index], new_name, *k[index + 1 :])
             new_hists[new_key] += h
-        return SparseHistResult(self.state.category_names, histograms=new_hists)
+        return type(self)(
+            new_categories,
+            histograms=new_hists,
+            **self.state.extra_constructor_args()
+        )
 
     def remove(self, axis_name, bins):
         """Remove bins from a categorical axis
@@ -314,7 +336,6 @@ class SparseHistResult:
                 list(a) if a.name != axis_name else new_bins, name=a.name, label=a.label
             )
             for a in self.state.category_axes
-            if a.name != axis_name
         ]
 
         for (
@@ -324,7 +345,7 @@ class SparseHistResult:
             if k[index] in bins:
                 continue
             new_hists[k] = h
-        return SparseHistResult(new_categories, histograms=new_hists)
+        return type(self)(new_categories, histograms=new_hists, **self.state.extra_constructor_args())
 
     def prune(self, axis_name, to_keep):
         """Remove bins from a categorical axis that are not in to_keep
@@ -347,7 +368,7 @@ class SparseHistResult:
         ) in self.state.dense_hists.items():
             if k[index] in to_keep:
                 new_hists[k] = h
-        return SparseHistResult(self.state.category_names, histograms=new_hists)
+        return type(self)(self.state.category_names, histograms=new_hists, **self.state.extra_constructor_args())
 
     def scale(self, factor: float):
         for h in self.state.dense_hists.values():

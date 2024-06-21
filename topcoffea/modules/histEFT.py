@@ -8,6 +8,7 @@ import dask
 
 from itertools import chain
 
+import numbers
 from typing import Any, List, Mapping, Union
 
 from topcoffea.modules.sparseHist import SparseState, SparseHist, SparseHistResult
@@ -80,6 +81,9 @@ class HistEFTState(SparseState):
             **kwargs,
         )
 
+    def extra_constructor_args(self):
+        return {"wc_names": self.wc_names}
+
     def index_of_wc(self, wc: str):
         return self.wc_names[wc]
 
@@ -102,7 +106,7 @@ class HistEFTState(SparseState):
         #                            [...       ]]
         # and then into       [e0, e0, ..., e1, e1, ..., e2, e2, ...]
         # each value repeated the number of quadratic coefficients.
-        return self.array_backend.broadcast_to(a, (n_events, self.quad_count)).ravel()
+        return self.array_backend.repeat(a, self.quad_count)
 
     def _fill_indices(self, n_events):
         # turns [0, 1, 2, ..., num of quadratic coeffs - 1]
@@ -110,7 +114,7 @@ class HistEFTState(SparseState):
         # [0, 1, 2, ..., 0, 1, 2 ...,]
         # repeated n_events times.
         return self.array_backend.broadcast_to(
-            np.ogrid[0 : self.quad_count], (n_events, self.quad_count)
+            np.ogrid[0 : self.quad_count], (n_events, self.quad_count),
         ).ravel()
 
     def fill(
@@ -136,35 +140,39 @@ class HistEFTState(SparseState):
         If eft_coeff is not given, then it is assumed to be [[1, 0, 0, ...], [1, 0, 0, ...], ...]
         """
 
+        events = kwargs.pop(self.dense_axis_name)
+        n_events = events.shape[0]
+
+        # turn into [e0, e0, ..., e1, e1, ..., e2, e2, ...]
+        events = self._fill_flatten(events, n_events)
+        chunks = events.chunks
+
         if eft_coeff is None:
             eft_coeff = 1  # if no eft_coeff, then it is simply sm, which does not weight the event
-            indices = 0  # instead of an array, just fill the first coefficint (sm)
+            indices = 0    # instead of an array, just fill the first coefficint (sm)
+        else:
+            # index for coefficient axes.
+            # [ 0, 1, 2, ..., 0, 1, 2, ...]
+            indices = self._fill_indices(n_events).rechunk(chunks)
+
+        # turn into: [c00, c01, c02, ..., c10, c11, c12, ...]
+        if not isinstance(eft_coeff, numbers.Number):
+            eft_coeff = eft_coeff.ravel().rechunk(chunks)
 
         # if weight is also given, comine it with eft_coeff. We use weight in the call to fill to pass the
         # coefficients
-        weight = kwargs.pop("weight", None)
-        if weight:
-            eft_coeff = eft_coeff * weight
+        if weight is None:
+            weight = 1
+        elif not isinstance(weight, numbers.Number):
+            weight = self._fill_flatten(weight, n_events).rechunk(chunks)
 
-        n_events = kwargs[self.dense_axis_name].shape[0]
-
-        # turn into [e0, e0, ..., e1, e1, ..., e2, e2, ...]
-        kwargs[self.dense_axis_name] = self._fill_flatten(
-            kwargs[self.dense_axis_name], n_events
-        )
-
-        # turn into: [c00, c01, c02, ..., c10, c11, c12, ...]
-        eft_coeff = eft_coeff.ravel()
-
-        # index for coefficient axes.
-        # [ 0, 1, 2, ..., 0, 1, 2, ...]
-        indices = self._fill_indices(n_events)
+        eft_coeff = eft_coeff * weight
 
         # fills:
         # [e0,      e0,      e0    ..., e1,     e1,     e1,     ...]
         # [ 0,      1,       2,    ..., 0,      1,      2,      ...]
         # [c00*w0, c01*w0, c02*w0, ..., c10*w1, c11*w1, c12*w1, ...]
-        super().fill(quadratic_term=indices, **kwargs, weight=eft_coeff)
+        super().fill(quadratic_term=indices, **{self.dense_axis_name: events}, weight=eft_coeff, **kwargs)
 
 
 class HistEFT(SparseHist):

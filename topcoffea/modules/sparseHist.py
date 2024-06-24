@@ -13,7 +13,7 @@ from collections import defaultdict
 
 
 class SparseState:
-    def __init__(self, category_axes, dense_axes, hist_cls):
+    def __init__(self, category_axes, dense_axes, hist_cls, label=None):
         """
         category_axes: List of categorical axes. They should be of type hist.axes.* (i.e., not dask-aware).
         dense_axes: List of dense axes. Either all or none may be dask-aware.
@@ -23,6 +23,7 @@ class SparseState:
         self.dense_hists = defaultdict(lambda: self.make_dense())
         self.hist_cls = hist_cls
         self._bookkeep = hist.Hist(*category_axes)
+        self.label = label
 
     @property
     def category_axes(self):

@@ -384,8 +384,16 @@ def test_histeft():
     print("--------------\n")
 
     ###########################
+    h_base = HistEFT(
+        category_axes=[
+            hist.axis.StrCategory([], name="process", label="h_base", growth=True),
+        ],
+        dense_axis=dah.Hist.new.Reg(name="n", label="", bins=1, start=0, stop=1),
+        wc_names=wc_names[1:],
+    )
 
-    output_h.fill(n=val, process="test", eft_coeff=sconst * 2)
+    h_base.fill(n=val, process="test", eft_coeff=sconst * 3)
+    (output_h,) = dask.compute(h_base)
 
     # First make sure the original WCFits weren't messed with
     expected = chk_y + 2 * chk_y

@@ -30,6 +30,7 @@ class HistEFTState(SparseState):
         hist_cls,
         array_backend,
         wc_names: Union[List[str], None] = None,
+        label=None,
         **kwargs,
     ) -> None:
         """HistEFT initialization is similar to hist.Hist, with the following restrictions:
@@ -78,6 +79,7 @@ class HistEFTState(SparseState):
             category_axes,
             dense_axes=[self.dense_axis, self.coeff_axis],
             hist_cls=hist_cls,
+            label=label,
             **kwargs,
         )
 
@@ -118,6 +120,18 @@ class HistEFTState(SparseState):
             (n_events, self.quad_count),
         ).ravel()
 
+    def chunks(self, array_like):
+        if hasattr(array_like, "chunks"):
+            return array_like.chunks
+        else:
+            return None
+
+    def rechunk(self, array_like, chunks):
+        if chunks:
+            return array_like.rechunk(chunks)
+        else:
+            return array_like
+
     def fill(
         self,
         weight=None,
@@ -146,26 +160,25 @@ class HistEFTState(SparseState):
 
         # turn into [e0, e0, ..., e1, e1, ..., e2, e2, ...]
         events = self._fill_flatten(events, n_events)
-        chunks = events.chunks
+        chunks = self.chunks(events)
 
         if eft_coeff is None:
             eft_coeff = 1  # if no eft_coeff, then it is simply sm, which does not weight the event
 
         # index for coefficient axes.
         # [ 0, 1, 2, ..., 0, 1, 2, ...]
-        indices = self._fill_indices(n_events).rechunk(chunks)
+        indices = self.rechunk(self._fill_indices(n_events), chunks)
 
         # turn into: [c00, c01, c02, ..., c10, c11, c12, ...]
         if not isinstance(eft_coeff, numbers.Number):
-            eft_coeff = eft_coeff.ravel().rechunk(chunks)
+            eft_coeff = self.rechunk(eft_coeff.ravel(), chunks)
 
         # if weight is also given, comine it with eft_coeff. We use weight in the call to fill to pass the
         # coefficients
         if weight is None:
             weight = 1
         elif not isinstance(weight, numbers.Number):
-            weight = self._fill_flatten(weight, n_events).rechunk(chunks)
-
+            weight = self.rechunk(self._fill_flatten(weight, n_events), chunks)
         eft_coeff = eft_coeff * weight
 
         # fills:
@@ -362,6 +375,7 @@ class HistEFTResult(SparseHistResult):
         nhist = hist.Hist(
             *list(self.state.category_axes),
             *[axis for axis in dense_axes if axis.name != self.state.coeff_axis.name],
+            label=self.state.label,
         )
 
         for sp_val, arrs in evals.items():

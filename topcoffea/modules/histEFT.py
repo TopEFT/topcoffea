@@ -150,11 +150,10 @@ class HistEFTState(SparseState):
 
         if eft_coeff is None:
             eft_coeff = 1  # if no eft_coeff, then it is simply sm, which does not weight the event
-            indices = 0  # instead of an array, just fill the first coefficint (sm)
-        else:
-            # index for coefficient axes.
-            # [ 0, 1, 2, ..., 0, 1, 2, ...]
-            indices = self._fill_indices(n_events).rechunk(chunks)
+
+        # index for coefficient axes.
+        # [ 0, 1, 2, ..., 0, 1, 2, ...]
+        indices = self._fill_indices(n_events).rechunk(chunks)
 
         # turn into: [c00, c01, c02, ..., c10, c11, c12, ...]
         if not isinstance(eft_coeff, numbers.Number):

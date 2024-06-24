@@ -2,8 +2,10 @@ import numpy as np
 import hist
 from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
+import copy
 
 import awkward as ak
+import dask
 
 # Let's generate some fake data to use for testing
 wc_names_lst = [
@@ -34,45 +36,59 @@ wc_names_lst = [
 nevts = 1000
 wc_count = len(wc_names_lst)
 ncoeffs = efth.n_quad_terms(wc_count)
+
 rng = np.random.default_rng()
-eft_fit_coeffs = rng.normal(0.3, 0.5, (nevts, ncoeffs))
-eft_all_ones_coeffs = np.ones((nevts, ncoeffs))
-sums = np.sum(eft_fit_coeffs, axis=0)
+eft_fit_coeffs = dask.array.from_array(rng.normal(0.3, 0.5, (nevts, ncoeffs)))
+eft_all_ones_coeffs = dask.array.ones((nevts, ncoeffs))
 
-a = HistEFT(
-    hist.axis.StrCategory([], name="type", label="type", growth=True),
-    hist.axis.Regular(1, 0, 1, name="x", label="x"),
-    label="Events",
-    wc_names=wc_names_lst,
-)
+vals = dask.array.full(nevts, 0.5)
 
-# Just need another one where I won't fill the EFT coefficients
-b = a.copy()
-
-# Fill the EFT histogram
-a.fill(type="eft", x=np.full(nevts, 0.5), eft_coeff=eft_fit_coeffs)
-b.fill(type="non-eft", x=np.full(nevts, 0.5))
-
-
-a_w = HistEFT(
-    hist.axis.StrCategory([], name="type", label="type", growth=True),
-    hist.axis.Regular(1, 0, 1, name="x", label="x"),
-    label="Events",
-    wc_names=wc_names_lst,
-)
-
-# Just need another one where I won't fill the EFT coefficients
-b_w = a_w.copy()
-
-# Fill the EFT histogram
 weight_val = 0.9
-a_w.fill(
-    type="eft",
-    x=np.full(nevts, 0.5),
-    eft_coeff=eft_fit_coeffs,
-    weight=np.full(nevts, weight_val),
+weights = dask.array.full(nevts, weight_val)
+
+sums = np.sum(dask.compute(eft_fit_coeffs)[0], axis=0)
+
+ad = HistEFT(
+    category_axes=[hist.axis.StrCategory([], name="type", label="type", growth=True)],
+    dense_axis=hist.axis.Regular(1, 0, 1, name="x", label="x"),
+    wc_names=wc_names_lst,
 )
-b_w.fill(type="non-eft", x=np.full(nevts, 0.5), weight=np.full(nevts, weight_val))
+
+# Just need another one where I won't fill the EFT coefficients
+bd = HistEFT(
+    category_axes=[hist.axis.StrCategory([], name="type", label="type", growth=True)],
+    dense_axis=hist.axis.Regular(1, 0, 1, name="x", label="x"),
+    wc_names=wc_names_lst,
+)
+
+# Fill the EFT histogram
+ad.fill(type="eft", x=vals, eft_coeff=eft_fit_coeffs)
+bd.fill(type="non-eft", x=vals)
+
+
+a_wd = HistEFT(
+    category_axes=[hist.axis.StrCategory([], name="type", label="type", growth=True)],
+    dense_axis=hist.axis.Regular(1, 0, 1, name="x", label="x"),
+    wc_names=wc_names_lst,
+)
+
+b_wd = HistEFT(
+    category_axes=[hist.axis.StrCategory([], name="type", label="type", growth=True)],
+    dense_axis=hist.axis.Regular(1, 0, 1, name="x", label="x"),
+    wc_names=wc_names_lst,
+)
+
+# Fill the EFT histogram
+a_wd.fill(
+    type="eft",
+    x=vals,
+    eft_coeff=eft_fit_coeffs,
+    weight=weights,
+)
+
+b_wd.fill(type="non-eft", x=vals, weight=weights, eft_coeff=1)
+
+(a, b, a_w, b_w) = dask.compute(ad, bd, a_wd, b_wd)
 
 
 def test_number_of_coefficients():
@@ -114,7 +130,7 @@ def test_scale_a_weights():
 
 
 def test_ac_deepcopy():
-    c_w = a_w.copy()
+    c_w = copy.deepcopy(a_w)
 
     assert np.all(
         a_w.integrate("type", "eft").view(as_dict=True)[()] == c_w.integrate("type", "eft").view(as_dict=True)[()]
@@ -138,41 +154,55 @@ def test_group():
 def test_add_ab():
     ab = a + b
 
-    assert np.all(ab.integrate("type", "eft").view(as_dict=True)[()][0] == sums)
+    assert np.all(
+        np.abs(ab.integrate("type", "eft").view(as_dict=True)[()][0] - sums) < 1e-10
+    )
     assert ab.integrate("type", "non-eft").view(as_dict=True)[()][0][0] == nevts
 
 
 def test_add_ba():
     ba = b + a
-    assert np.all(ba.integrate("type", "eft").view(as_dict=True)[()][0] == sums)
+    assert np.all(
+        np.abs(ba.integrate("type", "eft").view(as_dict=True)[()][0] - sums) < 1e-10
+    )
     assert ba.integrate("type", "non-eft").view(as_dict=True)[()][0][0] == nevts
 
 
 def test_add_aba():
     ab = a + b
     aba = ab + a
-    assert np.all(aba.integrate("type", "eft").view(as_dict=True)[()][0] == 2 * sums)
+    assert np.all(
+        np.abs(aba.integrate("type", "eft").view(as_dict=True)[()][0] - 2 * sums) < 1e-10
+    )
     assert aba.integrate("type", "non-eft").view(as_dict=True)[()][0][0] == nevts
 
 
 def test_add_baa():
     ba = b + a
     baa = ba + a
-    assert np.all(baa.integrate("type", "eft").view(as_dict=True)[()][0] == 2 * sums)
+    assert np.all(
+        np.abs(baa.integrate("type", "eft").view(as_dict=True)[()][0] - 2 * sums) < 1e-10
+    )
     assert baa.integrate("type", "non-eft").view(as_dict=True)[()][0][0] == nevts
 
 
 def test_add_abb():
     ab = a + b
     abb = ab + b
-    assert np.all(abb.integrate("type", "eft").view(as_dict=True)[()][0] == sums)
+
+    assert np.all(
+        np.abs(abb.integrate("type", "eft").view(as_dict=True)[()][0] - sums) < 1e-10
+    )
+
     assert abb.integrate("type", "non-eft").view(as_dict=True)[()][0][0] == 2 * nevts
 
 
 def test_add_bab():
     ba = b + a
     bab = ba + b
-    assert np.all(bab.integrate("type", "eft").view(as_dict=True)[()][0] == sums)
+    assert np.all(
+        np.abs(bab.integrate("type", "eft").view(as_dict=True)[()][0] - sums) < 1e-10
+    )
     assert bab.integrate("type", "non-eft").view(as_dict=True)[()][0][0] == 2 * nevts
 
 
@@ -234,9 +264,11 @@ def test_add_baa_weights():
 def test_add_abb_weights():
     ab = a_w + b_w
     abb = ab + b_w
+
     assert np.all(
         np.abs(abb.integrate("type", "eft").view(flow=False)[()][0] - weight_val * sums) < 1e-10
     )
+
     assert np.all(
         np.abs(
             abb.integrate("type", "non-eft").view(flow=False)[()][0][0] - 2 * weight_val * nevts

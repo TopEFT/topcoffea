@@ -12,6 +12,7 @@ setuptools.setup(
             "data/fromTTH/fakerate/*.root",
             "data/leptonSF/*/*.root",
             "data/leptonSF/*/*.json",
+            "data/photonSF/*.root",
             "data/JEC/*.txt",
             "data/JER/*.txt",
             "data/pileup/*.root",

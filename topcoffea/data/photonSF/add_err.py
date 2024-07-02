@@ -1,5 +1,6 @@
 import uproot
 import copy
+import numpy as np
 
 def add_err(fname='egammaEffi_EGM2D_Pho_Tight_UL16.root'):
     fin = uproot.update(fname)
@@ -8,7 +9,7 @@ def add_err(fname='egammaEffi_EGM2D_Pho_Tight_UL16.root'):
     sfs = h_sfs.values()
     err = h_sfs.variances()
     h_err = copy.deepcopy(h_sfs)
-    h_err.view().value = err
+    h_err.view().value = np.sqrt(err)
     fin[f'{sf_name}_err'] = h_err
     fin.close()
 

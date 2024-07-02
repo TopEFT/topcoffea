@@ -1,7 +1,5 @@
 import uproot
-import hist
 import copy
-import numpy as np
 
 def add_err(fname='egammaEffi_EGM2D_Pho_Tight_UL16.root'):
     fin = uproot.update(fname)

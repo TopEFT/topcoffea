@@ -31,7 +31,7 @@ default_modules = {
         "packages": [
             f"python={py_version}",
             "pip",
-            "conda",
+            "conda=23.7.2",
             "conda-pack",
             "dill",
             "xrootd",

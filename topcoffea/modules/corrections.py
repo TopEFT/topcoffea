@@ -44,7 +44,7 @@ def btag_sf_eval(jet_collection,wp,year,method,syst):
     clib_year = clib_year + "_UL" if any(runIIyear in clib_year for runIIyear in runII) else clib_year
 
     fname = topcoffea_path(f"data/POG/BTV/{clib_year}/btagging.json.gz")
-    
+
     # Flatten the input (until correctionlib handles jagged data natively)
     abseta_flat = ak.flatten(abs(jet_collection.eta))
     pt_flat = ak.flatten(jet_collection.pt)

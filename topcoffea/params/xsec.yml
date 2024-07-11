@@ -94,6 +94,9 @@ ZZTo4L                  : 1.256
 # See further: https://indico.cern.ch/event/494560/contributions/2014919/attachments/1223781/1798362/ZZ_crosssection_13TeV_preapproval.pdf
 ZZTo4LK                 : 1.3816
 
+# From AN-19-144 (AN for VVV observation)
+ggHToZZ4L : 0.011814
+
 ggToZHToHToWWTo2L2Nu    : 0.00275
 qqToZHToZTo2L           : 0.0018639
 

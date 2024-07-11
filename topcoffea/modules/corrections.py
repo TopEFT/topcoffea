@@ -36,6 +36,18 @@ def btag_sf_eval(jet_collection,wp,year,method,syst):
     # Get the right sf json for the given year
     if year.startswith("2016"):
         clib_year = "2016preVFP" if year == "2016APV" else "2016postVFP"
+    if year == "2016preVFP":
+        fname = topcoffea_path("data/btag_sf_correctionlib/2016preVFP_UL_btagging.json")
+    elif year == "2016postVFP":
+        fname = topcoffea_path("data/btag_sf_correctionlib/2016postVFP_UL_btagging.json")
+    elif year == "2017":
+        fname = topcoffea_path("data/btag_sf_correctionlib/2017_UL_btagging.json")
+    elif year == "2018":
+        fname = topcoffea_path("data/btag_sf_correctionlib/2018_UL_btagging.json")
+    elif year == "2022":
+        fname = topcoffea_path("data/btag_sf_correctionlib/2022_btagging.json")
+    elif year == "2022EE":
+        fname = topcoffea_path("data/btag_sf_correctionlib/2022EE_btagging.json")
     else:
         clib_year = year
 

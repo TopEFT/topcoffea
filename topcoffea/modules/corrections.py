@@ -34,6 +34,8 @@ def get_method1a_wgt_doublewp(effA, effB, sfA, sfB, cutA, cutB, cutC):
 # Evaluate btag sf from central correctionlib json
 def btag_sf_eval(jet_collection,wp,year,method,syst):
     # Get the right sf json for the given year
+    clib_year = year
+
     if year.startswith("2016"):
         clib_year = "2016preVFP" if year == "2016APV" else "2016postVFP"
     if year == "2016preVFP":
@@ -48,8 +50,6 @@ def btag_sf_eval(jet_collection,wp,year,method,syst):
         fname = topcoffea_path("data/btag_sf_correctionlib/2022_btagging.json")
     elif year == "2022EE":
         fname = topcoffea_path("data/btag_sf_correctionlib/2022EE_btagging.json")
-    else:
-        clib_year = year
 
     runII = ["16", "17", "18"]
 

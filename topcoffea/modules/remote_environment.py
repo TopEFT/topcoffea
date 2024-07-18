@@ -35,6 +35,7 @@ default_modules = {
             "conda-pack",
             "dill",
             "xrootd",
+            "setuptools==70.3.0",
         ],
     },
     "pip": [f"coffea=={coffea_version}", "topcoffea"],

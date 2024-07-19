@@ -46,7 +46,7 @@ def btag_sf_eval(jet_collection,wp,year,method,syst,fromPOG=True):
         fname = topcoffea_path(f"data/POG/BTV/{clib_year}/btagging.json.gz")
     else:
         fname = topcoffea_path(f"data/btag_sf_correctionlib/{clib_year}_btagging.json")
-        
+
     # Flatten the input (until correctionlib handles jagged data natively)
     abseta_flat = ak.flatten(abs(jet_collection.eta))
     pt_flat = ak.flatten(jet_collection.pt)

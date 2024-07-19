@@ -32,31 +32,21 @@ def get_method1a_wgt_doublewp(effA, effB, sfA, sfB, cutA, cutB, cutC):
     return pData, pMC
 
 # Evaluate btag sf from central correctionlib json
-def btag_sf_eval(jet_collection,wp,year,method,syst):
+def btag_sf_eval(jet_collection,wp,year,method,syst,fromPOG=True):
     # Get the right sf json for the given year
+    runII = ("2016", "2017", "2018")
+
     clib_year = year
-
     if year.startswith("2016"):
-        clib_year = "2016preVFP" if year == "2016APV" else "2016postVFP"
-    if year == "2016preVFP":
-        fname = topcoffea_path("data/btag_sf_correctionlib/2016preVFP_UL_btagging.json")
-    elif year == "2016postVFP":
-        fname = topcoffea_path("data/btag_sf_correctionlib/2016postVFP_UL_btagging.json")
-    elif year == "2017":
-        fname = topcoffea_path("data/btag_sf_correctionlib/2017_UL_btagging.json")
-    elif year == "2018":
-        fname = topcoffea_path("data/btag_sf_correctionlib/2018_UL_btagging.json")
-    elif year == "2022":
-        fname = topcoffea_path("data/btag_sf_correctionlib/2022_btagging.json")
-    elif year == "2022EE":
-        fname = topcoffea_path("data/btag_sf_correctionlib/2022EE_btagging.json")
-
-    runII = ["16", "17", "18"]
+        clib_year = "2016preVFP" if (year == "2016APV" or year == "2016preVFP") else "2016postVFP"
 
     clib_year = clib_year + "_UL" if any(runIIyear in clib_year for runIIyear in runII) else clib_year
 
-    fname = topcoffea_path(f"data/POG/BTV/{clib_year}/btagging.json.gz")
-
+    if fromPOG is True:
+        fname = topcoffea_path(f"data/POG/BTV/{clib_year}/btagging.json.gz")
+    else:
+        fname = topcoffea_path(f"data/btag_sf_correctionlib/{clib_year}_btagging.json")
+        
     # Flatten the input (until correctionlib handles jagged data natively)
     abseta_flat = ak.flatten(abs(jet_collection.eta))
     pt_flat = ak.flatten(jet_collection.pt)

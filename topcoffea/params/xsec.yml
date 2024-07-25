@@ -141,6 +141,9 @@ SSWW   : 0.02794
 #Numbers from TOP-22-012
 TWminus_DR_AtLeastOneLepton_13p6TeV    : 24.2
 TbarWplus_DR_AtLeastOneLepton_13p6TeV  : 24.2
+ST_top_t-channel_13p6TeV               : 145.0
+ST_antitop_t-channel_13p6TeV           : 87.2
+ST_top_s-channel_13p6TeV               : 3.7
 
 #Numbers from SMP-24-001
 DYto2L-2Jets_MLL-50_13p6TeV        : 6345.99
@@ -155,28 +158,51 @@ TTLL_MLL-4to50_13p6TeV             : 0.03949
 TTLL_MLL-50_13p6TeV                : 0.08646
 WWW_13p6TeV                        : 0.23280
 WZto3LNu_13p6TeV                   : 5.31
+VH_HtoNonbb_13p6TeV                : 1.0132
 
 #Numbers from SMP-24-005
-VH_HtoNonbb_13p6TeV                    : 0.9561
 WZZ_13p6TeV                            : 0.06
-ZZZ_13p6TeV                            : 0.02
 GluGluToContinto2Zto2E2Mu_13p6TeV      : 0.0061150
 GluGluToContinto2Zto2E2Tau_13p6TeV     : 0.0061150
 GluGluToContinto2Zto2Mu2Tau_13p6TeV    : 0.0061150
 GluGlutoContinto2Zto4Mu_13p6TeV        : 0.003
 GluGlutoContinto2Zto4E_13p6TeV         : 0.003
 GluGlutoContinto2Zto4Tau_13p6TeV       : 0.003
-ZZto4L_13p6TeV                         : 1.65
 WWto2L2Nu_13p6TeV                      : 12.98
 WWZ_13p6TeV                            : 0.19
+tZq_13p6TeV                            : 0.08
 
 #XSDB
 TWZToLL_tlept_Wlept_13p6TeV            : 0.001669
 TTZToQQ_13p6TeV                        : 0.6603
 WWZ4l_13p6TeV                          : 0.002244
+ZZZ_13p6TeV                            : 0.01591
+SSWW_TT_13p6TeV                        : 0.01762
+SSWW_TL_13p6TeV                        : 0.01152
+SSWW_LL_13p6TeV                        : 0.002177
+ZHToHtoWWto2L2Nu_13p6TeV               : 0.0195
+
+#Numbers from HIG-24-013
+ZZto4L_13p6TeV            : 1.39
+ggHToZZ4L                 : 0.01434
 
 #GenXSecAnalyzer
-ZHToHtoWWto2L2Nu_13p6TeV         : 0.0195
 GluGluZHToHtoWWto2L2Nu_13p6TeV   : 0.0033
+
+# qq-ZZ sample scaled by the 1.1 K factor as per SMP-19-001
+ZZTo4LK_13p6TeV                 : 1.529 
+
+# gg->ZZ samples, scale by the 1.7 K factor as written in AN-19-004
+GluGluToContinto2Zto2E2MuK_13p6TeV      : 0.0103955
+GluGluToContinto2Zto2E2TauK_13p6TeV     : 0.0103955
+GluGluToContinto2Zto2Mu2TauK_13p6TeV    : 0.0103955
+GluGlutoContinto2Zto4MuK_13p6TeV        : 0.0051
+GluGlutoContinto2Zto4EK_13p6TeV         : 0.0051
+GluGlutoContinto2Zto4TauK_13p6TeV       : 0.0051
+
+#TW production values from: https://twiki.cern.ch/twiki/bin/view/LHCPhysics/SingleTopNNLORef#Single_top_quark_tW_channel_cros
+#Then apply appropriate BR
+TbarWplustoLNu2Q_13p6TeV           : 19.36
+TWminustoLNu2Q_13p6TeV             : 19.36
 
 data                           : 1.0

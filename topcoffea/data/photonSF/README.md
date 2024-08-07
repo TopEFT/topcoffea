@@ -2,21 +2,29 @@
 ### 2016APV
 **Medium ID** egammaEffi_EGM2D_Pho_Medium_UL16.root<br>
 **Tight ID**  egammaEffi_EGM2D_Pho_Tight_UL16.root<br>
+**Conversion-safe electron** veto (CSEV) CSEV_SummaryPlot_UL16_preVFP.root<br>
+**Pixel Veto** HasPix_SummaryPlot_UL16_preVFP.root<br>
 **EGM Twiki** https://twiki.cern.ch/twiki/bin/view/CMS/EgammaUL2016To2018#SFs_for_Photons_UL_2016_preVFP
 
 ### 2016
 **Medium ID** egammaEffi_EGM2D_Pho_Medium_UL16_postVFP.root<br>
 **Tight ID**  egammaEffi_EGM2D_Pho_Tight_UL16_postVFP.root<br>
+**Conversion-safe electron** veto (CSEV) CSEV_SummaryPlot_UL16_postVFP.root<br>
+**Pixel Veto** HasPix_SummaryPlot_UL16_postVFP.root<br>
 **EGM Twiki** https://twiki.cern.ch/twiki/bin/view/CMS/EgammaUL2016To2018#SFs_for_Photons_UL_2016_postVFP
 
 ### 2017
 **Medium ID** egammaEffi_EGM2D_PHO_Medium_UL17.root<br>
 **Tight ID**  egammaEffi_EGM2D_PHO_Tight_UL17.root<br>
+**Conversion-safe electron** veto (CSEV) CSEV_SummaryPlot_UL17.root<br>
+**Pixel Veto** HasPix_SummaryPlot_UL17.root<br>
 **EGM Twiki** https://twiki.cern.ch/twiki/bin/view/CMS/EgammaUL2016To2018#SFs_for_Photons_UL_2017
 
 ### 2018
 **Medium ID** egammaEffi_EGM2D_Pho_Med_UL18.root<br>
 **Tight ID**  egammaEffi_EGM2D_Pho_Tight_UL18.root<br>
+**Conversion-safe electron** veto (CSEV) CSEV_SummaryPlot_UL17.root<br>
+**Pixel Veto** HasPix_SummaryPlot_UL17.root<br>
 **EGM Twiki** https://twiki.cern.ch/twiki/bin/view/CMS/EgammaUL2016To2018#SFs_for_Photons_UL_2018
 
 

@@ -184,7 +184,7 @@ ZHToHtoWWto2L2Nu_13p6TeV               : 0.0195
 
 #Numbers from HIG-24-013
 ZZto4L_13p6TeV            : 1.39
-ggHToZZ4L                 : 0.01434
+ggHToZZ4L_13p6TeV         : 0.01434
 
 #GenXSecAnalyzer
 GluGluZHToHtoWWto2L2Nu_13p6TeV   : 0.0033

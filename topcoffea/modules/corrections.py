@@ -15,7 +15,7 @@ clib_year_map = {
     "2017": "2017_UL",
     "2018": "2018_UL",
     "2022": "2022_Summer22",
-    "2022EE": "2022_Summer22EE", 
+    "2022EE": "2022_Summer22EE",
     "2023": "2022_Summer23",
     "2023BPix": "2022_Summer23BPix",
 }

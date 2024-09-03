@@ -8,6 +8,29 @@ from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 
+clib_year_map = {
+    "2016APV": "2016preVFP_UL",
+    "2016preVFP": "2016preVFP_UL",
+    "2016": "2016postVFP_UL",
+    "2017": "2017_UL",
+    "2018": "2018_UL",
+    "2022": "2022_Summer22",
+    "2022EE": "2022_Summer22EE",
+    "2023": "2022_Summer23",
+    "2023BPix": "2022_Summer23BPix",
+}
+
+goldenJSON_map = {
+    "2016APV": "Collisions16_UltraLegacy_goldenJSON",
+    "2016": "Collisions16_UltraLegacy_goldenJSON",
+    "2017": "Collisions17_UltraLegacy_goldenJSON",
+    "2018": "Collisions18_UltraLegacy_goldenJSON",
+    "2022": "Collisions2022_355100_357900_eraBCD_GoldenJson",
+    "2022EE": "Collisions2022_359022_362760_eraEFG_GoldenJson",
+    "2023": "Collisions2023_366403_369802_eraBC_GoldenJson",
+    "2023BPix": "Collisions2023_369803_370790_eraD_GoldenJson",
+}
+
 ### Btag corrections ###
 
 # Evaluate btag method 1a weight for a single WP (https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods)
@@ -21,24 +44,22 @@ def get_method1a_wgt_singlewp(eff,sf,passes_tag):
     wgt = p_data/p_mc
     return wgt
 
+def get_method1a_wgt_doublewp(effA, effB, sfA, sfB, cutA, cutB, cutC):
+    effA_data = effA * sfA
+    effB_data = effB * sfB
+
+    pMC = ak.prod(effA[cutA], axis=-1) * ak.prod(effB[cutB] - effA[cutB], axis=-1) * ak.prod(1 - effB[cutC], axis=-1)
+    pMC = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
+    pData = ak.prod(effA_data[cutA], axis=-1) * ak.prod(effB_data[cutB] - effA_data[cutB], axis=-1) * ak.prod(1 - effB_data[cutC], axis=-1)
+
+    return pData, pMC
+
 # Evaluate btag sf from central correctionlib json
 def btag_sf_eval(jet_collection,wp,year,method,syst):
-
     # Get the right sf json for the given year
-    if year == "2016APV":
-        fname = topcoffea_path("data/btag_sf_correctionlib/2016preVFP_UL_btagging.json")
-    elif year == "2016":
-        fname = topcoffea_path("data/btag_sf_correctionlib/2016postVFP_UL_btagging.json")
-    elif year == "2017":
-        fname = topcoffea_path("data/btag_sf_correctionlib/2017_UL_btagging.json")
-    elif year == "2018":
-        fname = topcoffea_path("data/btag_sf_correctionlib/2018_UL_btagging.json")
-    elif year == "2022":
-        fname = topcoffea_path("data/btag_sf_correctionlib/2022_btagging.json")
-    elif year == "2022EE":
-        fname = topcoffea_path("data/btag_sf_correctionlib/2022EE_btagging.json")
-    else:
-        raise Exception(f"Not a known year: {year}")
+
+    clib_year = clib_year_map[year]
+    fname = topcoffea_path(f"data/POG/BTV/{clib_year}/btagging.json.gz")
 
     # Flatten the input (until correctionlib handles jagged data natively)
     abseta_flat = ak.flatten(abs(jet_collection.eta))
@@ -120,17 +141,16 @@ for year in ['2016', '2016APV', '2017', '2018']:
 
 def GetPUSF(nTrueInt, year, var='nominal'):
     year = str(year)
-    if year not in ['2016','2016APV','2017','2018']:
+    if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
-    nMC = PUfunc[year]['MC'](nTrueInt+1)
-    data_dir = 'Data'
-    if var == 'up':
-        data_dir = 'DataUp'
-    elif var == 'down':
-        data_dir = 'DataDo'
-    nData = PUfunc[year][data_dir](nTrueInt)
-    weights = np.divide(nData,nMC)
-    return weights
+
+    clib_year = clib_year_map[year]
+    json_path = topcoffea_path(f"data/POG/LUM/{clib_year}/puWeights.json.gz")
+    ceval = correctionlib.CorrectionSet.from_file(json_path)
+
+    pucorr_tag = goldenJSON_map[year]
+    pu_corr = ceval[pucorr_tag].evaluate(nTrueInt, var)
+    return pu_corr
 
 
 

@@ -55,7 +55,7 @@ def get_method1a_wgt_doublewp(effA, effB, sfA, sfB, cutA, cutB, cutC):
     return pData, pMC
 
 # Evaluate btag sf from central correctionlib json
-def btag_sf_eval(jet_collection,wp,year,method,syst,fromPOG=True):
+def btag_sf_eval(jet_collection,wp,year,method,syst):
     # Get the right sf json for the given year
 
     clib_year = clib_year_map[year]

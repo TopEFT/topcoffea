@@ -111,7 +111,7 @@ def get_corr_inputs(jets, corr_obj, name_map, cache=None, corrections=None):
     Helper function for getting values of input variables
     given a dictionary and a correction object.
     """
-    
+
     if corrections is None:
         input_values = [awkward.flatten(jets[name_map[inp.name]]) for inp in corr_obj.inputs if inp.name != "systematic"]
     else:
@@ -123,7 +123,6 @@ def get_corr_inputs(jets, corr_obj, name_map, cache=None, corrections=None):
                 rawvar = awkward.flatten(jets[name_map[inp.name]])
                 init_input_value = partial(rawvar_jec, rawvar=rawvar, lazy_cache=cache)
                 input_value = init_input_value(jecval=corrections)
-                
             else:
                 input_value = awkward.flatten(jets[name_map[inp.name]])
             input_values.append(
@@ -142,7 +141,7 @@ class CorrectedJetsFactory_JME(object):
             self.tool = "jecstack"
         else:
             raise TypeError("jec_stack need to be either an instance of JECStack or a list containing correction-lib setup!")
-        
+
         self.forceStochastic = False
         if "ptRaw" not in name_map or name_map["ptRaw"] is None:
             warnings.warn(
@@ -165,13 +164,13 @@ class CorrectedJetsFactory_JME(object):
                 attr = getattr(jec_stack, part)
                 if attr is not None:
                     total_signature.update(attr.signature)
-                    
-            missing = total_signature - set(name_map.keys())
+
+                missing = total_signature - set(name_map.keys())
             if len(missing) > 0:
                 raise Exception(
-                    f"Missing mapping of {missing} in name_map!"
-                    + " Cannot evaluate jet corrections!"
-                    + " Please supply mappings for these variables!"
+                    f"Missing mapping of {missing} in name_map!" +
+                    " Cannot evaluate jet corrections!" +
+                    " Please supply mappings for these variables!"
                 )
 
         self.jec_stack = jec_stack
@@ -184,7 +183,7 @@ class CorrectedJetsFactory_JME(object):
         if self.tool == "clib":
             self.separated = self.jec_stack.pop()
             self.json_path = self.jec_stack.pop()
-            
+
         self.real_sig = [v for k, v in name_map.items()]
         self.name_map = name_map
 
@@ -194,7 +193,7 @@ class CorrectedJetsFactory_JME(object):
             self.jec_names = [name for name in self.jec_stack if (name not in self.jer_names and name not in self.junc_names)]
             ## General setup to use correction-lib
             self.cset = clib.CorrectionSet.from_file(self.json_path)
-            
+
     def uncertainties(self):
         out = ["JER"] if self.jec_stack.jer is not None else []
         if self.jec_stack.junc is not None:
@@ -212,7 +211,7 @@ class CorrectedJetsFactory_JME(object):
 
         ## THESE ARE THE ATTRIBUTES OF THE JET COLLECTION
         fields = awkward.fields(jets)
-        
+
         if len(fields) == 0:
             raise Exception(
                 "Empty record, please pass a jet object with at least {self.real_sig} defined!"
@@ -269,11 +268,8 @@ class CorrectedJetsFactory_JME(object):
                 cumCorr = None
                 if len(corrections_list) > 0:
                     ones = numpy.ones_like(corrections_list[-1], dtype=numpy.float32)
-                    cumCorr = reduce(lambda x, y: y * x, corrections_list, ones).astype(dtype=numpy.float32) 
-                #print("\n\n\n\n\n\n")
-                #print(lvl)
-                #print([corr.name for corr in self.cset.values()])
-                #print("\n\n\n\n\n\n")
+                    cumCorr = reduce(lambda x, y: y * x, corrections_list, ones).astype(dtype=numpy.float32)
+                    
                 sf = self.cset[lvl]
                 inputs = get_corr_inputs(jets=jets, corr_obj=sf, name_map=jec_name_map, cache=lazy_cache, corrections=cumCorr)
                 correction = sf.evaluate(*inputs).astype(dtype=numpy.float32)
@@ -375,7 +371,7 @@ class CorrectedJetsFactory_JME(object):
                 
                 for jer_entry in self.jer_names:
                     outtag = "jet_energy_resolution"
-                    jer_entry = jer_entry.replace("SF", "ScaleFactor") ## to remove once we get rid off of everything different from clib
+                    jer_entry = jer_entry.replace("SF", "ScaleFactor")
                     sf = self.cset[jer_entry]
                     inputs = get_corr_inputs(jets=jerjets, corr_obj=sf, name_map=jer_name_map)
                     if "ScaleFactor" in jer_entry:
@@ -551,20 +547,6 @@ class CorrectedJetsFactory_JME(object):
             out_dict["JER"] = awkward.zip(
                 {"up": up, "down": down}, depth_limit=1, with_name="JetSystematic"
             )
-
-            #print("\n\n\n\n\n")
-            #print("jer correction", awkward.to_list(out_dict["jet_energy_resolution_correction"]))
-            #print("mass jer", out_dict[self.name_map["JetMass"] + "_jer"])
-            #print("pt jer", out_dict[self.name_map["JetPt"] + "_jer"])
-            #print("UP HERE ====================")
-            #print("jer correction", awkward.to_list(up["jet_energy_resolution_correction"]))
-            #print("mass jer", up[self.name_map["JetMass"]])
-            #print("pt jer", up[self.name_map["JetPt"]])
-            #print("DOWN HERE ====================")
-            #print("jer correction", awkward.to_list(down["jet_energy_resolution_correction"]))
-            #print("mass jer", down[self.name_map["JetMass"]])
-            #print("pt jer", down[self.name_map["JetPt"]])
-            #print("\n\n\n\n\n")
 
         has_junc = False
         if self.tool == "jecstack":

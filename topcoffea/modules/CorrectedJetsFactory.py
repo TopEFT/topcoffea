@@ -394,7 +394,7 @@ class CorrectedJetsFactory_JME(object):
                     out_dict[outtag] = correction
 
                 del jerjets
-                    
+
             seeds = numpy.array(out_dict[self.name_map["JetPt"] + "_orig"])[
                 [0, -1]
             ].view("i4")
@@ -668,4 +668,3 @@ class CorrectedJetsFactory_JME(object):
         )
 
         return wrap(out)
-        

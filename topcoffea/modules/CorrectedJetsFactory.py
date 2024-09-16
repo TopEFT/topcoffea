@@ -133,7 +133,7 @@ def get_corr_inputs(jets, corr_obj, name_map, cache=None, corrections=None):
 
 
 class CorrectedJetsFactory_JME(object):
-    def __init__(self, name_map, jec_stack):  #,jerc_names): 
+    def __init__(self, name_map, jec_stack):
         # from PhysicsTools/PatUtils/interface/SmearedJetProducerT.h#L283
         if isinstance(jec_stack, list) and isinstance(jec_stack[-1], bool):
             self.tool = "clib"
@@ -188,7 +188,7 @@ class CorrectedJetsFactory_JME(object):
         self.name_map = name_map
 
         if self.tool == "clib":
-            self.jer_names = [name for name in self.jec_stack if isinstance(name, str) and ("Resolution" in name or "SF" in name)] 
+            self.jer_names = [name for name in self.jec_stack if isinstance(name, str) and ("Resolution" in name or "SF" in name)]
             self.junc_names = [name for name in self.jec_stack if isinstance(name, str) and ("Uncertainty" in name)]
             self.jec_names = [name for name in self.jec_stack if (name not in self.jer_names and name not in self.junc_names)]
             ## General setup to use correction-lib
@@ -269,7 +269,7 @@ class CorrectedJetsFactory_JME(object):
                 if len(corrections_list) > 0:
                     ones = numpy.ones_like(corrections_list[-1], dtype=numpy.float32)
                     cumCorr = reduce(lambda x, y: y * x, corrections_list, ones).astype(dtype=numpy.float32)
-                    
+
                 sf = self.cset[lvl]
                 inputs = get_corr_inputs(jets=jets, corr_obj=sf, name_map=jec_name_map, cache=lazy_cache, corrections=cumCorr)
                 correction = sf.evaluate(*inputs).astype(dtype=numpy.float32)
@@ -305,7 +305,7 @@ class CorrectedJetsFactory_JME(object):
 
                 out_dict[self.name_map["JetPt"] + jec_lvl_tag] = out_dict[self.name_map["JetPt"] + f"_{lvl}"]
                 out_dict[self.name_map["JetMass"] + jec_lvl_tag] = out_dict[self.name_map["JetMass"] + f"_{lvl}"]
-            
+
         out_dict["jet_energy_correction"] = total_correction
 
         # finally the lazy binding to the JEC
@@ -366,9 +366,9 @@ class CorrectedJetsFactory_JME(object):
                 jer_out_parms["corrected"] = True
                 jer_out = awkward.zip(
                     out_dict, depth_limit=1, parameters=jer_out_parms, behavior=out.behavior
-                )        
+                )
                 jerjets = wrap(jer_out)
-                
+
                 for jer_entry in self.jer_names:
                     outtag = "jet_energy_resolution"
                     jer_entry = jer_entry.replace("SF", "ScaleFactor")
@@ -577,12 +577,13 @@ class CorrectedJetsFactory_JME(object):
                 junc_out_parms["corrected"] = True
                 junc_out = awkward.zip(
                     out_dict, depth_limit=1, parameters=junc_out_parms, behavior=out.behavior
-                )        
+                )
                 juncjets = wrap(junc_out)
 
                 self.junc_names = [junc_name.replace("Quad_", "").replace("UncertaintySources_AK4PFchs_", "") + "_AK4PFchs" for junc_name in self.junc_names]
-                
+
                 uncnames, uncvalues = [], []
+
                 for junc_name in self.junc_names:
                     sf = self.cset[junc_name]
                     inputs = get_corr_inputs(jets=juncjets, corr_obj=sf, name_map=juncnames)
@@ -600,7 +601,7 @@ class CorrectedJetsFactory_JME(object):
                 for unc_up, unc_down in uncvalues:
                     combined = awkward.Array([[up, down] for up, down in zip(unc_up, unc_down)])
                     combined_uncvalues.append(combined)
-                    
+
                 juncs = zip(uncnames, combined_uncvalues)
 
             #print("\n\n\n\n\n")
@@ -608,7 +609,7 @@ class CorrectedJetsFactory_JME(object):
             #for lev, unc in list(juncs):
             #    print(f"unc {lev}:", awkward.to_list(unc))
             #print("\n\n\n\n\n")
-                
+
             def junc_smeared_val(uncvals, up_down, variable):
                 return awkward.materialized(uncvals[:, up_down] * variable)
 

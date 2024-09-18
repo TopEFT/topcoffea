@@ -132,7 +132,7 @@ def get_corr_inputs(jets, corr_obj, name_map, cache=None, corrections=None):
     return input_values
 
 
-class CorrectedJetsFactory_JME(object):
+class CorrectedJetsFactory(object):
     def __init__(self, name_map, jec_stack):
         # from PhysicsTools/PatUtils/interface/SmearedJetProducerT.h#L283
         if isinstance(jec_stack, list) and isinstance(jec_stack[-1], bool):

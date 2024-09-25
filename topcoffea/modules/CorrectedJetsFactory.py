@@ -603,7 +603,7 @@ class CorrectedJetsFactory(object):
                     combined_uncvalues.append(combined)
 
                 juncs = zip(uncnames, combined_uncvalues)
-                
+
             def junc_smeared_val(uncvals, up_down, variable):
                 return awkward.materialized(uncvals[:, up_down] * variable)
 
@@ -654,7 +654,7 @@ class CorrectedJetsFactory(object):
                     self.name_map["JetMass"],
                     out_dict[juncnames["JetMass"]],
                 )
-            
+
         out_parms = out.layout.parameters
         out_parms["corrected"] = True
         out = awkward.zip(

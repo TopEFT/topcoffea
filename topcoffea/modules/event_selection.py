@@ -96,7 +96,7 @@ def get_off_Z_mask_low(lep_collection,pt_window,flavor="os"):
     sfosz_mask = ak.flatten(ak.any((zpeak_mask & sf_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
     return sfosz_mask
 
-# Returns a mask for all events with any os lepton pair
+# Returns a mask for all events with any same-flavor os lepton pair
 def get_any_sfos_pair(lep_collection):
     ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
     sf_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)

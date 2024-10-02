@@ -604,12 +604,6 @@ class CorrectedJetsFactory(object):
 
                 juncs = zip(uncnames, combined_uncvalues)
 
-            #print("\n\n\n\n\n")
-            #print("JUNC ==================")
-            #for lev, unc in list(juncs):
-            #    print(f"unc {lev}:", awkward.to_list(unc))
-            #print("\n\n\n\n\n")
-
             def junc_smeared_val(uncvals, up_down, variable):
                 return awkward.materialized(uncvals[:, up_down] * variable)
 

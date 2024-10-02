@@ -58,6 +58,7 @@ def get_method1a_wgt_doublewp(effA, effB, sfA, sfB, cutA, cutB, cutC):
 def btag_sf_eval(jet_collection,wp,year,method,syst):
     # Get the right sf json for the given year
 
+    dt_era = "Run3" if year[2] == "2" else "Run2"
     clib_year = clib_year_map[year]
     fname = topcoffea_path(f"data/POG/BTV/{clib_year}/btagging.json.gz")
 
@@ -70,9 +71,12 @@ def btag_sf_eval(jet_collection,wp,year,method,syst):
     pt_flat = ak.where(pt_flat>1000.0,1000.0,pt_flat)
 
     # Evaluate the SF
-    ceval = correctionlib.CorrectionSet.from_file(fname)
-    sf_flat = ceval[method].evaluate(syst,wp,flav_flat,abseta_flat,pt_flat)
-    sf = ak.unflatten(sf_flat,ak.num(jet_collection.pt))
+    if dt_era == "Run3":
+        sf = ak.ones_like(jet_collection.pt)
+    else:
+        ceval = correctionlib.CorrectionSet.from_file(fname)
+        sf_flat = ceval[method].evaluate(syst,wp,flav_flat,abseta_flat,pt_flat)
+        sf = ak.unflatten(sf_flat,ak.num(jet_collection.pt))
 
     return sf
 

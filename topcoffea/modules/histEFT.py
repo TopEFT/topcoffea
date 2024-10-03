@@ -86,7 +86,6 @@ class HistEFT(SparseHist, family=_family):
 
         if not wc_names:
             wc_names = []
-
         n = len(wc_names)
         self._wc_names = {n: i for i, n in enumerate(wc_names)}
         self._wc_count = n
@@ -317,6 +316,56 @@ class HistEFT(SparseHist, family=_family):
                 self._dense_hists,
             ),
         )
+
+    def make_scalings(self,h,ch,p):
+            scalingsbins = h[{
+              'channel': ch,
+              'process': p,
+              'systematic': 'nominal'
+              }].values(flow=True)
+            scalingsbins_array = np.array(scalingsbins[1:])
+            scalingsbins_data = scalingsbins_array[:, 1:-1].tolist()
+            scalingsbins_normalized = [[(element / sublist[0] if sublist[0] != 0 else 0) for element in sublist] for sublist in scalingsbins_data] # normalized to sm
+            scalings = []
+            for numbers in scalingsbins_normalized:
+                n = 1
+                while (n * (n + 1)) // 2 <= len(numbers):
+                    n += 1
+                n -= 1  # get the dimension of matrix
+
+                lower_matrix = np.zeros((n, n))
+                lower_elements = []
+                index = 0
+                for i in range(n):
+                    for j in range(i + 1):  # Fill only the lower #triangle
+                        if index < len(numbers):
+                            lower_matrix[i][j] = numbers[index]
+                            index += 1
+
+                # Divide the lower off-diagonal elements by 2
+                for i in range(n):
+                    for j in range(i):  # j < i to target off-diagonal elements
+                        lower_matrix[i][j] /= 2
+                    for j in range(i+1):
+                        lower_elements.append(lower_matrix[i][j])
+
+                # Obtain the resulting matrix
+                scalings.append(lower_elements)
+            return scalings
+
+    def make_scalings_content(self,scalings_content,ch,km_dist,p,wc_names,scalings):
+        scalings_content.append(
+            {
+                "channel": ch + "_" + str(km_dist),
+                "process": p + "_sm",  # NOTE: needs to be in the datacard
+                "parameters": ["cSM[1]"]
+                + [ wc for wc in wc_names],
+                "scaling":
+                    scalings
+                ,
+             }
+        )
+        return scalings_content
 
     @classmethod
     def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):

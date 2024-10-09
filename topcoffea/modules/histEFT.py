@@ -340,9 +340,9 @@ class HistEFT(SparseHist, family=_family):
                 wcs[(wc_names_lst[i], wc_names_lst[j])] = index
                 index += 1
         #divide off-diagonal elements by 2
-        for key in wcs.keys():
-            if key[0] != key[1]:
-                scaling[:,wcs[key]] /= 2
+        for (wc1,wc2),coeff_idx in wcs.items():
+            if wc1 != wc2:
+                scaling[:,coeff_idx] /= 2
         return (scaling/np.expand_dims(scaling[:,0], 1)) #divide by sm
 
     @classmethod

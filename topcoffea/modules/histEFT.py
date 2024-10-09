@@ -338,7 +338,7 @@ class HistEFT(SparseHist, family=_family):
         for i in range(len(wc_names_lst)):
             for j in range(i+1):
                 wcs[(wc_names_lst[i], wc_names_lst[j])] = index
-                index += 1 
+                index += 1
         #divide off-diagonal elements by 2
         for key in wcs.keys():
             if key[0] != key[1]:

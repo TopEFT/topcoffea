@@ -323,13 +323,13 @@ class HistEFT(SparseHist, family=_family):
         Calculates the scaling matrix used in scalings.json
         ----------
         Args:
-        wc_list: list or array of WCs 
-        if None: will use self.wc_names for WCs
-        if list or array: will use wc_list for WCs
+            wc_list: list or array of WCs
+                if None: will use self.wc_names for WCs
+                if list or array: will use wc_list for WCs
         ----------
-        Returns: 
-        np.Array of scaling matrix for scalings.json with flow bins
-        """ 
+        Returns:
+            np.Array of scaling matrix for scalings.json with flow bins
+        """
         wcs = {}
         index = 0
         wc_names_lst = ['sm'] + self.wc_names
@@ -337,7 +337,7 @@ class HistEFT(SparseHist, family=_family):
         for i in range(len(wc_names_lst)):
             for j in range(i+1):
                 wcs[(wc_names_lst[i], wc_names_lst[j])] = index
-                index += 1 
+                index += 1
         if wc_list is not None:
             new_wcs = {}
             index = 0
@@ -346,7 +346,7 @@ class HistEFT(SparseHist, family=_family):
             for i in range(len(wc_names_lst)):
                 for j in range(i+1):
                     new_wcs[(wc_names_lst[i], wc_names_lst[j])] = index
-                    index += 1 
+                    index += 1
             #slice off extra columns which do not correlate with an WCs and make new scaling matrix
             old_scaling = self.values(flow=True)[:,1:-1]
             scaling = np.zeros((old_scaling.shape[0], len(new_wcs)))

@@ -317,55 +317,25 @@ class HistEFT(SparseHist, family=_family):
             ),
         )
 
-    def make_scalings(self,h,ch,p):
-            scalingsbins = h[{
-              'channel': ch,
-              'process': p,
-              'systematic': 'nominal'
-              }].values(flow=True)
-            scalingsbins_array = np.array(scalingsbins[1:])
-            scalingsbins_data = scalingsbins_array[:, 1:-1].tolist()
-            scalingsbins_normalized = [[(element / sublist[0] if sublist[0] != 0 else 0) for element in sublist] for sublist in scalingsbins_data] # normalized to sm
-            scalings = []
-            for numbers in scalingsbins_normalized:
-                n = 1
-                while (n * (n + 1)) // 2 <= len(numbers):
-                    n += 1
-                n -= 1  # get the dimension of matrix
+    def make_scalings(self,wc_scalings_lst=None):
+        scalingsbins = np.array(self.values(flow=True)[1:])[:, 1:-1]
+        scalingsbins_normalized = np.nan_to_num(scalingsbins / scalingsbins[:,0].reshape(-1,1), nan=0.0)
+        scalings = []
+        for numbers in scalingsbins_normalized:
+            n = len(self._wc_names) + 1
+            lower_matrix = np.zeros((n, n))
+            idx = 0
 
-                lower_matrix = np.zeros((n, n))
-                lower_elements = []
-                index = 0
-                for i in range(n):
-                    for j in range(i + 1):  # Fill only the lower #triangle
-                        if index < len(numbers):
-                            lower_matrix[i][j] = numbers[index]
-                            index += 1
+            for i in range(n):
+                lower_matrix[i, :i + 1] = numbers[idx:idx + i + 1]
+                idx += i + 1
 
-                # Divide the lower off-diagonal elements by 2
-                for i in range(n):
-                    for j in range(i):  # j < i to target off-diagonal elements
-                        lower_matrix[i][j] /= 2
-                    for j in range(i+1):
-                        lower_elements.append(lower_matrix[i][j])
+            lower_matrix[np.tril_indices(n, -1)] /= 2
+            scalings.append(lower_matrix[np.tril_indices(n)].tolist())
+        if wc_scalings_lst and wc_scalings_lst != self._wc_names:
+            scalings = efth.remap_coeffs(self._wc_names,wc_scalings_lst,np.array(scalings)).tolist()
 
-                # Obtain the resulting matrix
-                scalings.append(lower_elements)
-            return scalings
-
-    def make_scalings_content(self,scalings_content,ch,km_dist,p,wc_names,scalings):
-        scalings_content.append(
-            {
-                "channel": ch + "_" + str(km_dist),
-                "process": p + "_sm",  # NOTE: needs to be in the datacard
-                "parameters": ["cSM[1]"]
-                + [ wc for wc in wc_names],
-                "scaling":
-                    scalings
-                ,
-             }
-        )
-        return scalings_content
+        return scalings
 
     @classmethod
     def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):

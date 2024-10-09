@@ -320,48 +320,33 @@ class HistEFT(SparseHist, family=_family):
 
     def make_scaling(self, wc_list=None):
         """
-        Calculates the scaling matrix used in scalings.json
+        returns np.Array of scaling for scalings.json with the interference model list with flow bins
         ----------
-        Args:
-            wc_list: list or array of WCs
-                if None: will use self.wc_names for WCs
-                if list or array: will use wc_list for WCs
-        ----------
-        Returns:
-            np.Array of scaling matrix for scalings.json with flow bins
-        """
-        wcs = {}
+        wc_list: list or array of WCs 
+            if None: will use self.wc_names for WCs
+            if list or array: will use wc_list for WCs
+        """ 
+        if wc_list is not None:
+            scaling = efth.remap_coeffs(self.wc_names,wc_list,np.array(self.values(flow=True)[:,1:-1]))
+            wc_names_lst = ['sm'] + wc_list
+        
+        else:
+            scaling = self.values(flow=True)[:,1:-1]
+            wc_names_lst = ['sm'] + self.wc_names
+            
+        wcs   = {}
         index = 0
-        wc_names_lst = ['sm'] + self.wc_names
-        #Construct a dictionary of indicies for the WCs in self
+        #Construct a dictionary of indicies for the WCs
         for i in range(len(wc_names_lst)):
             for j in range(i+1):
                 wcs[(wc_names_lst[i], wc_names_lst[j])] = index
-                index += 1
-        if wc_list is not None:
-            new_wcs = {}
-            index = 0
-            wc_names_lst = ['sm'] + wc_list
-            #Construct a dictionary of indicies for the WCs passed with wc_list
-            for i in range(len(wc_names_lst)):
-                for j in range(i+1):
-                    new_wcs[(wc_names_lst[i], wc_names_lst[j])] = index
-                    index += 1
-            #slice off extra columns which do not correlate with an WCs and make new scaling matrix
-            old_scaling = self.values(flow=True)[:,1:-1]
-            scaling = np.zeros((old_scaling.shape[0], len(new_wcs)))
-            #place columns from old scaling matrix into new scaling matrix based on new mapping
-            for key in new_wcs.keys():
-                if key in wcs.keys():
-                    scaling[:,new_wcs[key]] = old_scaling[:,wcs[key]]
-            wcs = new_wcs
-        else:
-            #slice off extra columns which do not correlate with an WCs
-            scaling = self.values(flow=True)[:,1:-1]
+                index += 1 
+    
         #divide off-diagonal elements by 2
-        for (wc1,wc2),coeff_idx in wcs.items():
-            if wc1 != wc2:
-                scaling[:,coeff_idx] /= 2
+        for key in wcs.keys():
+            if key[0] != key[1]:
+                scaling[:,wcs[key]] /= 2
+    
         return (scaling/np.expand_dims(scaling[:,0], 1)) #divide by sm
 
     @classmethod

@@ -318,6 +318,36 @@ class HistEFT(SparseHist, family=_family):
             ),
         )
 
+    def make_scaling(self, wc_list=None):
+        """
+        returns np.Array of scaling for scalings.json with the interference model list with flow bins
+        ----------
+        wc_list: list or array of WCs 
+            if None: will use self.wc_names for WCs
+            if list or array: will use wc_list for WCs
+        """ 
+        
+        if wc_list is None:
+            wcs = get_wc_names_cross(['sm'] + self.wc_names)
+            scaling = self.values(flow=True)[:,1:-1]
+    
+        else:
+            wcs =  get_wc_names_cross(['sm'] + wc_list)
+            old_wcs = get_wc_names_cross(['sm'] + self.wc_names)
+            old_scaling = self.values(flow=True)[:,1:-1]
+            scaling = np.zeros((old_scaling.shape[0], len(wcs)))
+            for key in wcs.keys():
+                if key in old_wcs.keys():
+                    scaling[:,wcs[key]] = old_scaling[:,old_wcs[key]]
+        
+        scaling = (scaling/np.expand_dims(scaling[:,0], 1))
+        
+        for key in wcs.keys():
+            if key[0] != key[1]:
+                scaling[:,wcs[key]] /= 2
+                
+        return scaling
+
     @classmethod
     def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
         return super()._read_from_reduce(cat_axes, dense_axes, init_args, dense_hists)

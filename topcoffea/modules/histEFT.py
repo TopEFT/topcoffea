@@ -322,18 +322,16 @@ class HistEFT(SparseHist, family=_family):
         """
         returns np.Array of scaling for scalings.json with the interference model list with flow bins
         ----------
-        wc_list: list or array of WCs 
+        wc_list: list or array of WCs
             if None: will use self.wc_names for WCs
             if list or array: will use wc_list for WCs
-        """ 
+        """
         if wc_list is not None:
             scaling = efth.remap_coeffs(self.wc_names,wc_list,np.array(self.values(flow=True)[:,1:-1]))
             wc_names_lst = ['sm'] + wc_list
-        
         else:
             scaling = self.values(flow=True)[:,1:-1]
             wc_names_lst = ['sm'] + self.wc_names
-            
         wcs   = {}
         index = 0
         #Construct a dictionary of indicies for the WCs
@@ -341,12 +339,10 @@ class HistEFT(SparseHist, family=_family):
             for j in range(i+1):
                 wcs[(wc_names_lst[i], wc_names_lst[j])] = index
                 index += 1 
-    
         #divide off-diagonal elements by 2
         for key in wcs.keys():
             if key[0] != key[1]:
                 scaling[:,wcs[key]] /= 2
-    
         return (scaling/np.expand_dims(scaling[:,0], 1)) #divide by sm
 
     @classmethod

@@ -323,12 +323,12 @@ class HistEFT(SparseHist, family=_family):
         Calculates the scaling matrix used in scalings.json
         ----------
         Args:
-            wc_list: list or array of WCs 
-                if None: will use self.wc_names for WCs
-                if list or array: will use wc_list for WCs
+        wc_list: list or array of WCs 
+        if None: will use self.wc_names for WCs
+        if list or array: will use wc_list for WCs
         ----------
         Returns: 
-            np.Array of scaling matrix for scalings.json with flow bins
+        np.Array of scaling matrix for scalings.json with flow bins
         """ 
         wcs = {}
         index = 0

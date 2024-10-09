@@ -359,9 +359,9 @@ class HistEFT(SparseHist, family=_family):
             #slice off extra columns which do not correlate with an WCs
             scaling = self.values(flow=True)[:,1:-1]
         #divide off-diagonal elements by 2
-        for key in wcs.keys():
-            if key[0] != key[1]:
-                scaling[:,wcs[key]] /= 2
+        for (wc1,wc2),coeff_idx in wcs.items():
+            if wc1 != wc2:
+                scaling[:,coeff_idx] /= 2
         return (scaling/np.expand_dims(scaling[:,0], 1)) #divide by sm
 
     @classmethod

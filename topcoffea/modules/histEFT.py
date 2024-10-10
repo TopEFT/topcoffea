@@ -335,7 +335,6 @@ class HistEFT(SparseHist, family=_family):
         #check if any non-flow bins have zero sm contribution
         if ((scaling[:,0] == 0) & (scaling != 0).any(axis=1)).any():
             raise Exception('At least one bin found with no SM contribution and a BSM contribution!')
-        elif (scaling[1:-1,:].any(axis=1)).all():
         wcs   = {}
         index = 0
         #Construct a dictionary of indicies for the WCs

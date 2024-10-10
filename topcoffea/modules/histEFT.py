@@ -318,6 +318,36 @@ class HistEFT(SparseHist, family=_family):
             ),
         )
 
+    def make_scaling(self, wc_list=None):
+        """
+        returns np.Array of scaling for scalings.json with the interference model list with flow bins
+        ----------
+        wc_list: list or array of WCs
+            if None: will use self.wc_names for WCs
+            if list or array: will use wc_list for WCs
+        """
+        if wc_list is not None:
+            scaling = efth.remap_coeffs(self.wc_names,wc_list,np.array(self.values(flow=True)[:,1:-1]))
+            wc_names_lst = ['sm'] + wc_list
+        else:
+            scaling = self.values(flow=True)[:,1:-1]
+            wc_names_lst = ['sm'] + self.wc_names
+        #check if any non-flow bins have zero sm contribution
+        if ((scaling[:,0] == 0) & (scaling != 0).any(axis=1)).any():
+            raise Exception('At least one bin found with no SM contribution and a BSM contribution!')
+        wcs   = {}
+        index = 0
+        #Construct a dictionary of indicies for the WCs
+        for i in range(len(wc_names_lst)):
+            for j in range(i+1):
+                wcs[(wc_names_lst[i], wc_names_lst[j])] = index
+                index += 1
+        #divide off-diagonal elements by 2
+        for (wc1,wc2),coeff_idx in wcs.items():
+            if wc1 != wc2:
+                scaling[:,coeff_idx] /= 2
+        return np.nan_to_num(scaling/np.expand_dims(scaling[:,0], 1), 0) #divide by sm
+
     @classmethod
     def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
         return super()._read_from_reduce(cat_axes, dense_axes, init_args, dense_hists)

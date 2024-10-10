@@ -332,6 +332,10 @@ class HistEFT(SparseHist, family=_family):
         else:
             scaling = self.values(flow=True)[:,1:-1]
             wc_names_lst = ['sm'] + self.wc_names
+        #check if any non-flow bins have zero sm contribution
+        if ((scaling[:,0] == 0) & (scaling != 0).any(axis=1)).any():
+            raise Exception('At least one bin found with no SM contribution and a BSM contribution!')
+        elif (scaling[1:-1,:].any(axis=1)).all():
         wcs   = {}
         index = 0
         #Construct a dictionary of indicies for the WCs
@@ -343,7 +347,7 @@ class HistEFT(SparseHist, family=_family):
         for (wc1,wc2),coeff_idx in wcs.items():
             if wc1 != wc2:
                 scaling[:,coeff_idx] /= 2
-        return (scaling/np.expand_dims(scaling[:,0], 1)) #divide by sm
+        return np.nan_to_num(scaling/np.expand_dims(scaling[:,0], 1), 0) #divide by sm
 
     @classmethod
     def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):

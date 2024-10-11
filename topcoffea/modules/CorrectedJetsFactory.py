@@ -111,9 +111,8 @@ def get_corr_inputs(jets, corr_obj, name_map, cache=None, corrections=None):
     Helper function for getting values of input variables
     given a dictionary and a correction object.
     """
-
     if corrections is None:
-        input_values = [awkward.flatten(jets[name_map[inp.name]]) for inp in corr_obj.inputs if inp.name != "systematic"]
+        input_values = [awkward.flatten(jets[name_map[inp.name]]) for inp in corr_obj.inputs if (inp.name != "systematic")]
     else:
         input_values = []
         for inp in corr_obj.inputs:
@@ -128,7 +127,6 @@ def get_corr_inputs(jets, corr_obj, name_map, cache=None, corrections=None):
             input_values.append(
                 input_value
             )
-
     return input_values
 
 
@@ -191,6 +189,11 @@ class CorrectedJetsFactory(object):
             self.jer_names = [name for name in self.jec_stack if isinstance(name, str) and ("Resolution" in name or "SF" in name)]
             self.junc_names = [name for name in self.jec_stack if isinstance(name, str) and ("Uncertainty" in name)]
             self.jec_names = [name for name in self.jec_stack if (name not in self.jer_names and name not in self.junc_names)]
+            #print("\n\n\n\n\n\n\n")
+            #print(self.jer_names)
+            #print(self.junc_names)
+            #print(self.jec_names)
+            #print("\n\n\n\n\n\n\n")
             ## General setup to use correction-lib
             self.cset = clib.CorrectionSet.from_file(self.json_path)
 
@@ -306,6 +309,8 @@ class CorrectedJetsFactory(object):
                 out_dict[self.name_map["JetPt"] + jec_lvl_tag] = out_dict[self.name_map["JetPt"] + f"_{lvl}"]
                 out_dict[self.name_map["JetMass"] + jec_lvl_tag] = out_dict[self.name_map["JetMass"] + f"_{lvl}"]
 
+                
+                
         out_dict["jet_energy_correction"] = total_correction
 
         # finally the lazy binding to the JEC
@@ -339,7 +344,7 @@ class CorrectedJetsFactory(object):
             if self.jec_stack.jer is not None and self.jec_stack.jersf is not None:
                 has_jer = True
         elif self.tool == "clib":
-            has_jer = True
+            has_jer = True if len(self.jer_names) > 0 else False
 
         if has_jer:
             jer_name_map = dict(self.name_map)
@@ -553,7 +558,7 @@ class CorrectedJetsFactory(object):
             if self.jec_stack.junc is not None:
                 has_junc = True
         elif self.tool == "clib":
-            has_junc = True
+            has_junc = True if len(self.junc_names) > 0 else False
 
         if has_junc:
             juncnames = {}
@@ -580,7 +585,7 @@ class CorrectedJetsFactory(object):
                 )
                 juncjets = wrap(junc_out)
 
-                self.junc_names = [junc_name.replace("Quad_", "").replace("UncertaintySources_AK4PFchs_", "") + "_AK4PFchs" for junc_name in self.junc_names]
+                self.junc_names = [junc_name.replace("Quad_", "").replace("UncertaintySources_", "") for junc_name in self.junc_names]
 
                 uncnames, uncvalues = [], []
 

@@ -335,17 +335,14 @@ class HistEFT(SparseHist, family=_family):
         #check if any non-flow bins have zero sm contribution
         if ((scaling[:,0] == 0) & (scaling != 0).any(axis=1)).any():
             raise Exception('At least one bin found with no SM contribution and a BSM contribution!')
-        wcs   = {}
-        index = 0
-        #Construct a dictionary of indicies for the WCs
-        for i in range(len(wc_names_lst)):
-            for j in range(i+1):
-                wcs[(wc_names_lst[i], wc_names_lst[j])] = index
-                index += 1
-        #divide off-diagonal elements by 2
-        for (wc1,wc2),coeff_idx in wcs.items():
-            if wc1 != wc2:
-                scaling[:,coeff_idx] /= 2
+        skip = 0
+        step = 2
+        for i in np.ogrid[0: efth.n_quad_terms(len(wc_list))]:
+            if i == skip:
+                skip += step
+                step += 1
+            else:
+                scaling[:,i] /= 2
         return np.nan_to_num(scaling/np.expand_dims(scaling[:,0], 1), 0) #divide by sm
 
     @classmethod

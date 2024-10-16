@@ -3,6 +3,7 @@ import awkward as ak
 import uproot
 from coffea import lookup_tools
 import correctionlib
+import re
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -161,36 +162,75 @@ def GetPUSF(nTrueInt, year, var='nominal'):
 ###############################################################
 ###### Scale, PS weights (as implimented for TOP-22-006) ######
 ###############################################################
-
 def AttachPSWeights(events):
     '''
-        Return a list of PS weights
-        PS weights (w_var / w_nominal)
-        [0] is ISR=0.5 FSR = 1
-        [1] is ISR=1 FSR = 0.5
-        [2] is ISR=2 FSR = 1
-        [3] is ISR=1 FSR = 2
+    Retrieve ISR and FSR variations from PS weights based on the docstring in events.PSWeight.__doc__
+    Then, it saves them in events
+
+    ISRDown == ISR=0.5 FSR=1
+    ISRUp == ISR=2 FSR=1
+    FSRDown == ISR=1 FSR=0.5
+    FSRUp == ISR=1 FSR=2
+    
     '''
-    ISR = 0
-    FSR = 1
-    ISRdown = 0
-    FSRdown = 1
-    ISRup = 2
-    FSRup = 3
+    
+    # Check if PSWeight exists in the event
     if events.PSWeight is None:
         raise Exception('PSWeight not found!')
+    
+    # Get the PSWeight documentation
+    psweight_doc = events.PSWeight.__doc__
+    
+    # If PSWeight.__doc__ is empty or malformed
+    if not psweight_doc:
+        raise Exception('PSWeight.__doc__ is empty or not available!')
+
+    #print("\n\n\n\n\n\n\n")
+    #print("PSweight doc:", psweight_doc)
+    
+    # Define the mapping we are looking for
+    ps_map = {
+        'ISR=0.5 FSR=1': 'ISRDown',
+        'ISR=2 FSR=1': 'ISRUp',
+        'ISR=1 FSR=0.5': 'FSRDown',
+        'ISR=1 FSR=2': 'FSRUp'
+    }
+
+    # Extract the relevant information from the docstring
+    # Example pattern: [0] is ISR=2 FSR=1
+    pattern = r'\[(\d+)\] is ISR=(\d+\.?\d*) FSR=(\d+\.?\d*)'
+    matches = re.findall(pattern, psweight_doc)
+
+    # Dictionary to hold the index of each variation
+    ps_indices = {}
+
+    for match in matches:
+        index, isr, fsr = match
+        key = f'ISR={isr} FSR={fsr}'
+        if key in ps_map:
+            ps_indices[ps_map[key]] = int(index)
+
+    # Retrieve required keys from ps_map values
+    required_keys = ps_map.values() # It's an iterable in py3, not a list anymore!
+
+    # Check if all needed weights were found
+    if not all(key in ps_indices for key in required_keys):
+        raise Exception('Not all ISR/FSR weight variations found in PSWeight.__doc__!')
+
     # Add up variation event weights
-    events['ISRUp'] = events.PSWeight[:, ISRup]
-    events['FSRUp'] = events.PSWeight[:, FSRup]
+    events['ISRUp'] = events.PSWeight[:, ps_indices['ISRUp']]
+    events['FSRUp'] = events.PSWeight[:, ps_indices['FSRUp']]
+    
     # Add down variation event weights
-    events['ISRDown'] = events.PSWeight[:, ISRdown]
-    events['FSRDown'] = events.PSWeight[:, FSRdown]
+    events['ISRDown'] = events.PSWeight[:, ps_indices['ISRDown']]
+    events['FSRDown'] = events.PSWeight[:, ps_indices['FSRDown']]
 
 def AttachScaleWeights(events):
-    '''
-    Return a list of scale weights
+    """
+    Dynamically retrieves scale weights from LHEScaleWeight based on its __doc__.
+
     LHE scale variation weights (w_var / w_nominal)
-    Case 1:
+    Case 1: If there are 9 weights:
         [0] is renscfact = 0.5d0 facscfact = 0.5d0
         [1] is renscfact = 0.5d0 facscfact = 1d0
         [2] is renscfact = 0.5d0 facscfact = 2d0
@@ -200,7 +240,7 @@ def AttachScaleWeights(events):
         [6] is renscfact =   2d0 facscfact = 0.5d0
         [7] is renscfact =   2d0 facscfact = 1d0
         [8] is renscfact =   2d0 facscfact = 2d0
-    Case 2:
+    Case 2: If there are 8 weights:
         [0] is MUF = "0.5" MUR = "0.5"
         [1] is MUF = "1.0" MUR = "0.5"
         [2] is MUF = "2.0" MUR = "0.5"
@@ -209,38 +249,126 @@ def AttachScaleWeights(events):
         [5] is MUF = "0.5" MUR = "2.0"
         [6] is MUF = "1.0" MUR = "2.0"
         [7] is MUF = "2.0" MUR = "2.0"
-    '''
-    # Determine if we are in case 1 or case 2 by checking if we have 8 or 9 weights
-    len_of_wgts = ak.count(events.LHEScaleWeight,axis=-1)
-    all_len_9_or_0_bool = ak.all((len_of_wgts==9) | (len_of_wgts==0))
-    all_len_8_or_0_bool = ak.all((len_of_wgts==8) | (len_of_wgts==0))
+    """
+
+    # Check if LHEScaleWeight exists in the event
+    if events.LHEScaleWeight is None:
+        raise Exception('LHEScaleWeight not found!')
+    
+    # Get the LHEScaleWeight documentation
+    scale_weight_doc = events.LHEScaleWeight.__doc__
+
+    does_doc_exist = True
+    if not scale_weight_doc:
+        #raise Exception('LHEScaleWeight.__doc__ is empty or not available!')
+        does_doc_exist = False
+        
+    #print("\n\n\n\n\n\n\n\n\n")
+    #print("LHEScaleWeight doc:", scale_weight_doc, ak.count(events.LHEScaleWeight, axis=-1)[0])
+    #print("LHEScaleWeight[4]", ak.to_list(events.LHEScaleWeight[:,4]))
+    #print("\n\n\n\n\n\n\n\n\n")
+
+    # Define the mapping we are looking for the three scenarios
+    scenarios_map = {
+        # Scenario 1: renscfact and facscfact for 9 weights
+        "renscfact": {
+            "scale_map": {
+                'renscfact=0.5d0 facscfact=0.5d0': 'renormfactDown',
+                'renscfact=0.5d0 facscfact=1d0': 'renormDown',
+                'renscfact=0.5d0 facscfact=2d0': 'renormDown_factUp',
+                'renscfact=1d0 facscfact=0.5d0': 'factDown',
+                #'renscfact=1d0 facscfact=1d0': 'nominal',  # Handle nominal
+                'renscfact=1d0 facscfact=2d0': 'factUp',
+                'renscfact=2d0 facscfact=0.5d0': 'renormUp_factDown',
+                'renscfact=2d0 facscfact=1d0': 'renormUp',
+                'renscfact=2d0 facscfact=2d0': 'renormfactUp'
+            },
+            "re_pattern": r'\[(\d+)\] is renscfact=(\d+\.?\d*)d0 facscfact=(\d+\.?\d*)d0',
+            "key": lambda match: f'renscfact={match[1]}d0 facscfact={match[2]}d0'
+        },
+        # Scenario 2: MUF and MUR for 9 weights
+        "MUF9": {
+            "scale_map": {
+                'MUF="0.5" MUR="0.5"': 'renormDown_factDown',
+                'MUF="1.0" MUR="0.5"': 'renormDown',
+                'MUF="2.0" MUR="0.5"': 'renormDown_factUp',
+                'MUF="0.5" MUR="1.0"': 'factDown',
+                #'MUF="1.0" MUR="1.0"': 'nominal',  # Explicitly handle the nominal case
+                'MUF="2.0" MUR="1.0"': 'factUp',
+                'MUF="0.5" MUR="2.0"': 'renormUp_factDown',
+                'MUF="1.0" MUR="2.0"': 'renormUp',
+                'MUF="2.0" MUR="2.0"': 'renormUp_factUp'
+            },
+            "re_pattern": r'\[(\d+)\] is MUF="(\d+\.?\d*)" MUR="(\d+\.?\d*)"',
+            "key": lambda match: f'MUF="{match[1]}" MUR="{match[2]}"'
+        },
+        # Scenario 3: MUF and MUR for 8 weights
+        "MUF8": {
+            "scale_map": {
+                'MUF="0.5" MUR="0.5"': 'renormDown_factDown',
+                'MUF="1.0" MUR="0.5"': 'renormDown',
+                'MUF="2.0" MUR="0.5"': 'renormDown_factUp',
+                'MUF="0.5" MUR="1.0"': 'factDown',
+                'MUF="2.0" MUR="1.0"': 'factUp',
+                'MUF="0.5" MUR="2.0"': 'renormUp_factDown',
+                'MUF="1.0" MUR="2.0"': 'renormUp',
+                'MUF="2.0" MUR="2.0"': 'renormUp_factUp'
+            },
+            "re_pattern": r'\[(\d+)\] is MUF="(\d+\.?\d*)" MUR="(\d+\.?\d*)"',
+            "key": lambda match: f'MUF="{match[1]}" MUR="{match[2]}"'
+        }
+    }
+    
+    # Determine the number of weights available
+    len_of_wgts = ak.count(events.LHEScaleWeight, axis=-1)
+    all_len_9_or_0_bool = ak.all((len_of_wgts == 9) | (len_of_wgts == 0))
+    all_len_8_or_0_bool = ak.all((len_of_wgts == 8) | (len_of_wgts == 0))
+    scale_weights = None
+    scale_map = None
+    matches = None
+    scenario = None
+    
+    # Choose between the different cases based on the number of weights and the doc string
     if all_len_9_or_0_bool:
-        scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty
-        renormDown_factDown = 0
-        renormDown          = 1
-        renormDown_factUp   = 2
-        factDown            = 3
-        nominal             = 4
-        factUp              = 5
-        renormUp_factDown   = 6
-        renormUp            = 7
-        renormUp_factUp     = 8
+        if "renscfact" in scale_weight_doc:
+            scenario = "renscfact"  # Scenario 1: renscfact/facscfact
+        elif "MUF" in scale_weight_doc:
+            scenario = "MUF9"       # Scenario 2: MUF/MUR with 9 weights
     elif all_len_8_or_0_bool:
-        scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 8), 1) # FIXME this is a bandaid until we understand _why_ some are empty
-        renormDown_factDown = 0
-        renormDown          = 1
-        renormDown_factUp   = 2
-        factDown            = 3
-        factUp              = 4
-        renormUp_factDown   = 5
-        renormUp            = 6
-        renormUp_factUp     = 7
+        scenario = "MUF8"           # Scenario 3: MUF/MUR with 8 weights
     else:
         raise Exception("Unknown weight type")
-    # Get the weights from the event
-    events['renormfactDown'] = scale_weights[:,renormDown_factDown]
-    events['renormDown']     = scale_weights[:,renormDown]
-    events['factDown']       = scale_weights[:,factDown]
-    events['factUp']         = scale_weights[:,factUp]
-    events['renormUp']       = scale_weights[:,renormUp]
-    events['renormfactUp']   = scale_weights[:,renormUp_factUp]
+
+    scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9 if (scenario == "MUF9" or scenario == "renscfact" or scenario is None) else 8), 1)
+    # Dictionary to hold the index of each variation
+    scale_indices = {}
+
+    if scenario is not None:
+        matches = re.findall(scenarios_map[scenario]["re_pattern"], scale_weight_doc)
+        scale_map = scenarios_map[scenario]["scale_map"]
+        key = scenarios_map[scenario]["key"]
+        
+        # Parse the matches and build the scale indices dictionary
+        for match in matches:
+            index = int(match[0])  # Extract the index from the regex match
+            key_str = key(match)  # Dynamically get the key string based on the case
+
+            if key_str in scale_map:
+                scale_indices[scale_map[key_str]] = index
+
+        required_keys = list(scale_map.values())
+
+        # Check if all needed weights were found
+        if not all(key in scale_indices for key in required_keys):
+            missing_keys = [key for key in required_keys if key not in scale_indices]
+            raise Exception('Not all scale weight variations found in LHEScaleWeight.__doc__!')
+
+    else:
+        #This part of the code assumes that every entry is unit when LHEScaleWeight is not actually filled
+        dummy_keys = list(scenarios_map["MUF9"]["scale_map"].values())
+        for id_key, dummy_key in enumerate(dummy_keys):
+            scale_indices[dummy_key] = id_key
+
+    # Assign the weights from the event to the respective fields dynamically using a loop
+    for key in scale_indices:
+        events[key] = scale_weights[:, scale_indices[key]]

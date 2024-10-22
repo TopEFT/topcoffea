@@ -21,6 +21,7 @@ setuptools.setup(
             "data/TauSF/*.json",
             "data/topmva/lepid_weights/*.bin",
             "data/btag_sf_correctionlib/*json",
-        ],
+            "data/POG/*/*/*json.gz" 
+       ],
     }
 )

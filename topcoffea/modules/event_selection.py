@@ -9,10 +9,6 @@ import awkward as ak
 def passes_trg_inlst(events,trg_name_lst):
     tpass = np.zeros_like(np.array(events.MET.pt), dtype=bool)
     trg_info_dict = events.HLT
-    print("\n\n\n\n\n\n")
-    print("trg_name_lst", trg_name_lst)
-    print("trg_info_dict.fields", trg_info_dict.fields)
-    print("\n\n\n\n\n\n")
     # "fields" should be list of all triggers in the dataset
     common_triggers = set(trg_info_dict.fields) & set(trg_name_lst)
 
@@ -30,7 +26,6 @@ def passes_trg_inlst(events,trg_name_lst):
 #   - Elements are false if they do not pass any of the triggers defined in dataset_dict
 #   - In the case of data, events are also false if they overlap with another dataset
 def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict,era=None):
-
     # The triggers for 2016 and 2016APV are the same
     if year == "2016APV":
         year = "2016"

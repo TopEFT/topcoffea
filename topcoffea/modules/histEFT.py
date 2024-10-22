@@ -86,7 +86,6 @@ class HistEFT(SparseHist, family=_family):
 
         if not wc_names:
             wc_names = []
-
         n = len(wc_names)
         self._wc_names = {n: i for i, n in enumerate(wc_names)}
         self._wc_count = n
@@ -317,6 +316,52 @@ class HistEFT(SparseHist, family=_family):
                 self._dense_hists,
             ),
         )
+
+    def make_scalings(self,wc_scalings_lst=None):
+        """
+        This function returns the scalings necessary for running the interference model.
+
+        It obtains all eft coefficients from each bin of the histogram.
+        The coefficients are then normalized to sm, and have the cross terms divided by 2 to obtain lower matrix.
+        (Our histogram saves all elements of the matrix therefore twice of the cross terms)
+
+        lower matrix:
+
+             sm   wc1  wc2  wc3 ...
+        sm    1
+        wc1  c01  c11
+        wc2  c02  c12  c22
+        wc3  c03  c13  c23  c33
+        ...
+
+        scalings for each bin: [1, c01, c11, c02, c12, c22, c03, c13, c23, c33 ... ]
+        If there is a specified list of wcs, this function remaps the coefficients.
+        """
+        scalingsbins = np.array(self.values(flow=True)[1:])[:, 1:-1]
+
+        # normalize all terms to sm
+        scalingsbins_normalized = np.nan_to_num(scalingsbins / scalingsbins[:,0].reshape(-1,1), nan=0.0)
+
+        scalings = []
+        for bins in scalingsbins_normalized:
+            # set up matrix of n dimension
+            n = len(self._wc_names) + 1
+            lower_matrix = np.zeros((n, n))
+            idx = 0
+
+            # fill lower matrix
+            for i in range(n):
+                lower_matrix[i, :i + 1] = bins[idx:idx + i + 1]
+                idx += i + 1
+            # divide cross terms
+            lower_matrix[np.tril_indices(n, -1)] /= 2
+            scalings.append(lower_matrix[np.tril_indices(n)].tolist())
+
+        # remaps the coeffs if given list of wcs
+        if wc_scalings_lst and wc_scalings_lst != self._wc_names:
+            scalings = efth.remap_coeffs(self._wc_names,wc_scalings_lst,np.array(scalings)).tolist()
+
+        return scalings
 
     @classmethod
     def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):

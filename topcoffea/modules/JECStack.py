@@ -41,15 +41,6 @@ class JECStack:
         if not self.json_path:
             raise ValueError("json_path is required for clib initialization.")
         
-        #if len(assembled["jec"]) > 0:
-        #    self.jec = FactorizedJetCorrector(**assembled["jec"])
-        #if len(assembled["junc"]) > 0:
-        #    self.junc = JetCorrectionUncertainty(**assembled["junc"])
-        #if len(assembled["jer"]) > 0:
-        #    self.jer = JetResolution(**assembled["jer"])
-        #if len(assembled["jersf"]) > 0:
-        #    self.jersf = JetResolutionScaleFactor(**assembled["jersf"])
-
         if (self.jer is None) != (self.jersf is None):
             raise ValueError("Cannot apply JER-SF without an input JER, and vice-versa!")
 

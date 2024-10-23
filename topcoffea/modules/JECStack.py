@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
-from coffea.jetmet_tools.FactorizedJetCorrector import FactorizedJetCorrector
+from coffea.jetmet_tools.FactorizedJetCorrector import FactorizedJetCorrector, _levelre
 from coffea.jetmet_tools.JetResolution import JetResolution
 from coffea.jetmet_tools.JetResolutionScaleFactor import JetResolutionScaleFactor
 from coffea.jetmet_tools.JetCorrectionUncertainty import JetCorrectionUncertainty
@@ -41,18 +41,14 @@ class JECStack:
         if not self.json_path:
             raise ValueError("json_path is required for clib initialization.")
         
-        # Combine corrections for clib use case
-        #corrections_list = self.to_list()
-        #assembled = self.assemble_corrections()
-        
-        if len(assembled["jec"]) > 0:
-            self.jec = FactorizedJetCorrector(**assembled["jec"])
-        if len(assembled["junc"]) > 0:
-            self.junc = JetCorrectionUncertainty(**assembled["junc"])
-        if len(assembled["jer"]) > 0:
-            self.jer = JetResolution(**assembled["jer"])
-        if len(assembled["jersf"]) > 0:
-            self.jersf = JetResolutionScaleFactor(**assembled["jersf"])
+        #if len(assembled["jec"]) > 0:
+        #    self.jec = FactorizedJetCorrector(**assembled["jec"])
+        #if len(assembled["junc"]) > 0:
+        #    self.junc = JetCorrectionUncertainty(**assembled["junc"])
+        #if len(assembled["jer"]) > 0:
+        #    self.jer = JetResolution(**assembled["jer"])
+        #if len(assembled["jersf"]) > 0:
+        #    self.jersf = JetResolutionScaleFactor(**assembled["jersf"])
 
         if (self.jer is None) != (self.jersf is None):
             raise ValueError("Cannot apply JER-SF without an input JER, and vice-versa!")
@@ -80,9 +76,7 @@ class JECStack:
     def assemble_corrections(self):
         """Assemble corrections for both scenarios."""
         assembled = {"jec": {}, "junc": {}, "jer": {}, "jersf": {}}
-        print("\n\n\n\n\n\n\n\n")
-        print("self.corrections", self.corrections)
-        print("\n\n\n\n\n\n\n\n")
+            
         for key in self.corrections.keys():
             if "Uncertainty" in key:
                 assembled["junc"][key] = self.corrections[key]
@@ -92,8 +86,11 @@ class JECStack:
                 assembled["jer"][key] = self.corrections[key]
             elif len(_levelre.findall(key)) > 0:
                 assembled["jec"][key] = self.corrections[key]
-        return assembled
+            else:
+                print(f"Unknown correction type for key: {key}")
 
+        return assembled
+    
     @property
     def blank_name_map(self):
         """Returns a blank name map for corrections."""

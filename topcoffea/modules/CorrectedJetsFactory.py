@@ -39,7 +39,6 @@ def rand_gauss(item, randomstate):
                 randomstate.normal(size=len(layout)).astype(numpy.float32)
             )
         return None
-
     out = awkward._util.recursively_apply(
         awkward.operations.convert.to_layout(item), getfunction
     )
@@ -158,14 +157,32 @@ class CorrectedJetsFactory(object):
     def load_corrections_clib(self):
         """Load the corrections from correctionlib using the json_path in JECStack."""
         self.cset = clib.CorrectionSet.from_file(self.jec_stack.json_path)
-        
-        # Construct corrections map from clib corrections
-        self.jec_names = self.jec_stack.jec_names_clib
-        self.jer_names = self.jec_stack.jer_names_clib
-        self.jec_regroup = self.jec_stack.jec_regroup_clib
-        
+        #print("\n\n\n\n\n\n\n\n")
+        # Sanity check: Ensure all requested corrections are available
+        requested_corrections = self.jec_stack.jec_names_clib + self.jec_stack.jer_names_clib + self.jec_stack.jec_uncsources_clib
+        available_corrections = list(self.cset.keys())
+
+        # Find missing corrections
+        missing_corrections = [name for name in requested_corrections if name not in available_corrections]
+
+        # Raise error with detailed information about missing corrections
+        if missing_corrections:
+            raise ValueError(
+                f"Missing corrections in the CorrectionSet: {missing_corrections}. "
+                f"Available corrections are: {available_corrections}. "
+                f"Requested corrections are: {requested_corrections}"
+            )
+
+        # #Print the available corrections and requested corrections for debugging
+        #print("\nAvailable corrections:", available_corrections)
+        #print("JEC names (requested):", self.jec_stack.jec_names_clib)
+        #print("JER names (requested):", self.jec_stack.jer_names_clib)
+        #print("JUNC names (requested):", self.jec_stack.jec_uncsources_clib)
+
         # Populate corrections dictionary with objects from correctionlib
-        self.corrections = {name: self.cset[name] for name in self.jec_names + self.jer_names + self.jec_regroup}
+        self.corrections = {name: self.cset[name] for name in requested_corrections}
+
+        #print(f"\nCorrections successfully loaded: {list(self.corrections.keys())}")
 
     def load_corrections_jecstack(self):
         """Use the corrections provided in the JECStack for non-clib scenario."""
@@ -231,6 +248,9 @@ class CorrectedJetsFactory(object):
 
         elif self.tool == "clib":
             corrections_list = []
+            #print("\n\n\n\n\n\n\n\n")
+            #print("jec_names_clib:", self.jec_stack.jec_names_clib)
+            
             for lvl in self.jec_stack.jec_names_clib:
                 if "Uncertainty" in lvl:
                     continue
@@ -240,7 +260,12 @@ class CorrectedJetsFactory(object):
                     ones = numpy.ones_like(corrections_list[-1], dtype=numpy.float32)
                     cumCorr = reduce(lambda x, y: y * x, corrections_list, ones).astype(dtype=numpy.float32)
 
-                sf = self.jec_stack.corrections[lvl]
+                #print("Processing correction level:", lvl)
+                sf = self.corrections.get(lvl, None)
+                if sf is None:
+                    #print(f"Correction {lvl} not found in self.corrections")
+                    continue
+                    
                 inputs = get_corr_inputs(jets=jets, corr_obj=sf, name_map=jec_name_map, cache=lazy_cache, corrections=cumCorr)
                 correction = sf.evaluate(*inputs).astype(dtype=numpy.float32)
                 corrections_list.append(correction)
@@ -266,7 +291,12 @@ class CorrectedJetsFactory(object):
                 out_dict[self.name_map["JetPt"] + f"_{lvl}"] = init_pt_lvl(length=len(out), form=scalar_form)
                 out_dict[self.name_map["JetMass"] + f"_{lvl}"] = init_mass_lvl(length=len(out), form=scalar_form)
 
-        # Apply JER corrections
+        #print("\n\n\n\n\n\n\n\n")
+        #print("JetPt:", out_dict.get(self.name_map["JetPt"], None))
+        #print("ptRaw:", out_dict.get(self.name_map["ptRaw"], None))
+        #print("total_correction:", total_correction)
+        #print("\n\n\n\n\n\n\n\n")
+                
         out_dict["jet_energy_correction"] = total_correction
 
         # Finally, the lazy binding to the JEC
@@ -298,6 +328,9 @@ class CorrectedJetsFactory(object):
             has_jer = len(self.jec_stack.jer_names_clib) > 0
 
         if has_jer:
+            print("\n\n\n\n\n\n")
+            print("I'm applying JERs")
+            print("\n\n\n\n\n\n")
             jer_name_map = dict(self.name_map)
             jer_name_map["JetPt"] = jer_name_map["JetPt"] + "_jec"
             jer_name_map["JetMass"] = jer_name_map["JetMass"] + "_jec"
@@ -329,7 +362,7 @@ class CorrectedJetsFactory(object):
                 for jer_entry in self.jec_stack.jer_names_clib:
                     outtag = "jet_energy_resolution"
                     jer_entry = jer_entry.replace("SF", "ScaleFactor")
-                    sf = self.jec_stack.corrections[jer_entry]
+                    sf = self.corrections[jer_entry]
                     inputs = get_corr_inputs(jets=jerjets, corr_obj=sf, name_map=jer_name_map)
                     if "ScaleFactor" in jer_entry:
                         outtag += "_scale_factor"
@@ -401,14 +434,110 @@ class CorrectedJetsFactory(object):
             out_dict[self.name_map["JetPt"] + "_jer"] = out_dict[self.name_map["JetPt"]]
             out_dict[self.name_map["JetMass"] + "_jer"] = out_dict[self.name_map["JetMass"]]
 
+            # JER systematics
+            jerc_up = partial(
+                awkward.virtual,
+                jer_smear,
+                args=(
+                    1,
+                    self.forceStochastic,
+                    awkward.values_astype(out_dict[jer_name_map["ptGenJet"]], numpy.float32),
+                    awkward.values_astype(out_dict[jer_name_map["JetPt"]], numpy.float32),
+                    awkward.values_astype(out_dict[jer_name_map["JetEta"]], numpy.float32),
+                    awkward.values_astype(out_dict["jet_energy_resolution"], numpy.float32),
+                    awkward.values_astype(out_dict["jet_resolution_rand_gauss"], numpy.float32),
+                    awkward.values_astype(out_dict["jet_energy_resolution_scale_factor"], numpy.float32),
+                ),
+                cache=lazy_cache,
+            )
+            up = awkward.flatten(jets)
+            up["jet_energy_resolution_correction"] = jerc_up(
+                length=len(out), form=scalar_form
+            )
+            init_pt_jer = partial(
+                awkward.virtual,
+                operator.mul,
+                args=(
+                    up["jet_energy_resolution_correction"],
+                    out_dict[jer_name_map["JetPt"]],
+                ),
+                cache=lazy_cache,
+            )
+            init_mass_jer = partial(
+                awkward.virtual,
+                operator.mul,
+                args=(
+                    up["jet_energy_resolution_correction"],
+                    out_dict[jer_name_map["JetMass"]],
+                ),
+                cache=lazy_cache,
+            )
+            up[self.name_map["JetPt"]] = init_pt_jer(length=len(out), form=scalar_form)
+            up[self.name_map["JetMass"]] = init_mass_jer(
+                length=len(out), form=scalar_form
+            )
+
+            jerc_down = partial(
+                awkward.virtual,
+                jer_smear,
+                args=(
+                    2,
+                    self.forceStochastic,
+                    awkward.values_astype(out_dict[jer_name_map["ptGenJet"]], numpy.float32),
+                    awkward.values_astype(out_dict[jer_name_map["JetPt"]], numpy.float32),
+                    awkward.values_astype(out_dict[jer_name_map["JetEta"]], numpy.float32),
+                    awkward.values_astype(out_dict["jet_energy_resolution"], numpy.float32),
+                    awkward.values_astype(out_dict["jet_resolution_rand_gauss"], numpy.float32),
+                    awkward.values_astype(out_dict["jet_energy_resolution_scale_factor"], numpy.float32),
+                ),
+                cache=lazy_cache,
+            )
+            down = awkward.flatten(jets)
+            down["jet_energy_resolution_correction"] = jerc_down(
+                length=len(out), form=scalar_form
+            )
+            init_pt_jer = partial(
+                awkward.virtual,
+                operator.mul,
+                args=(
+                    down["jet_energy_resolution_correction"],
+                    out_dict[jer_name_map["JetPt"]],
+                ),
+                cache=lazy_cache,
+            )
+            init_mass_jer = partial(
+                awkward.virtual,
+                operator.mul,
+                args=(
+                    down["jet_energy_resolution_correction"],
+                    out_dict[jer_name_map["JetMass"]],
+                ),
+                cache=lazy_cache,
+            )
+            down[self.name_map["JetPt"]] = init_pt_jer(
+                length=len(out), form=scalar_form
+            )
+            down[self.name_map["JetMass"]] = init_mass_jer(
+                length=len(out), form=scalar_form
+            )
+            out_dict["JER"] = awkward.zip(
+                {"up": up, "down": down}, depth_limit=1, with_name="JetSystematic"
+            )
                 
         # Apply uncertainties (JES)
         has_junc = self.jec_stack.junc is not None
         if self.tool == "clib":
-            has_junc = len(self.jec_stack.assemble_corrections()["junc"]) > 0
+            has_junc = len(self.jec_stack.jec_uncsources_clib) > 0 #len(self.jec_stack.assemble_corrections()["junc"]) > 0
             #has_junc = len(self.jec_stack.junc_names_clib) > 0
 
+        print("\n\n\n\n\n\n\n\n")
+        print("has_junc", has_junc)
+        print(len(self.jec_stack.assemble_corrections()["junc"]) > 0)
+        print(self.jec_stack.assemble_corrections())
+        print("\n\n\n\n\n\n\n\n")
+            
         if has_junc:
+            print("\n\n\n\n\n\n\n\n")
             junc_name_map = dict(self.name_map)
             if has_jer:
                 junc_name_map["JetPt"] = junc_name_map["JetPt"] + "_jer"
@@ -432,8 +561,13 @@ class CorrectedJetsFactory(object):
                 juncjets = wrap(junc_out)
 
                 uncnames, uncvalues = [], []
-                for junc_name in self.jec_stack.junc_names_clib:
-                    sf = self.jec_stack.corrections[junc_name]
+                for junc_name in self.jec_stack.jec_uncsources_clib:
+                    sf = self.corrections[junc_name]
+                    if sf is None:
+                        print(f"Correction {junc_name} not found in self.corrections")
+                        continue  # Skip if the correction is not found
+                    else:
+                        print(f"Correction {junc_name} found in self.corrections")
                     inputs = get_corr_inputs(jets=juncjets, corr_obj=sf, name_map=junc_name_map)
                     unc = awkward.values_astype(sf.evaluate(*inputs), numpy.float32)
                     central = awkward.ones_like(out_dict[self.name_map["JetPt"]])
@@ -441,7 +575,7 @@ class CorrectedJetsFactory(object):
                     unc_down = central - unc
                     uncnames.append(junc_name.split("_")[-2])
                     uncvalues.append([unc_up, unc_down])
-
+                print("\n\n\n\n\n\n\n")
                 del juncjets
 
                 # Combine the up and down values into pairs

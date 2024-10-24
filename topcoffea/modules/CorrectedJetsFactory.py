@@ -203,7 +203,7 @@ class CorrectedJetsFactory(object):
             out.extend(["JES_{0}".format(unc) for unc in self.jec_stack.junc.levels])
         return out
 
-    def build(self, jets, lazy_cache):
+    def build(self, jets, lazy_cache, isdata = False):
         if lazy_cache is None:
             raise Exception(
                 "CorrectedJetsFactory requires a awkward-array cache to function correctly."
@@ -344,7 +344,7 @@ class CorrectedJetsFactory(object):
             if self.jec_stack.jer is not None and self.jec_stack.jersf is not None:
                 has_jer = True
         elif self.tool == "clib":
-            has_jer = True if len(self.jer_names) > 0 else False
+            has_jer = len(self.jer_names) > 0
 
         if has_jer:
             jer_name_map = dict(self.name_map)
@@ -563,6 +563,7 @@ class CorrectedJetsFactory(object):
         if has_junc:
             juncnames = {}
             juncnames.update(self.name_map)
+
             if has_jer:
                 juncnames["JetPt"] = juncnames["JetPt"] + "_jer"
                 juncnames["JetMass"] = juncnames["JetMass"] + "_jer"
@@ -598,7 +599,7 @@ class CorrectedJetsFactory(object):
                     unc_down = central - unc
                     uncnames.append(junc_name.split("_")[-2])
                     uncvalues.append([unc_up, unc_down])
-
+                    
                 del juncjets
 
                 # Combine the up and down values into pairs

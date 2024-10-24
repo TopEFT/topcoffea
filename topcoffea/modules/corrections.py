@@ -171,23 +171,19 @@ def AttachPSWeights(events):
     ISRUp == ISR=2 FSR=1
     FSRDown == ISR=1 FSR=0.5
     FSRUp == ISR=1 FSR=2
-    
     '''
-    
+
     # Check if PSWeight exists in the event
     if events.PSWeight is None:
         raise Exception('PSWeight not found!')
-    
+
     # Get the PSWeight documentation
     psweight_doc = events.PSWeight.__doc__
-    
+
     # If PSWeight.__doc__ is empty or malformed
     if not psweight_doc:
         raise Exception('PSWeight.__doc__ is empty or not available!')
 
-    #print("\n\n\n\n\n\n\n")
-    #print("PSweight doc:", psweight_doc)
-    
     # Define the mapping we are looking for
     ps_map = {
         'ISR=0.5 FSR=1': 'ISRDown',
@@ -220,7 +216,7 @@ def AttachPSWeights(events):
     # Add up variation event weights
     events['ISRUp'] = events.PSWeight[:, ps_indices['ISRUp']]
     events['FSRUp'] = events.PSWeight[:, ps_indices['FSRUp']]
-    
+
     # Add down variation event weights
     events['ISRDown'] = events.PSWeight[:, ps_indices['ISRDown']]
     events['FSRDown'] = events.PSWeight[:, ps_indices['FSRDown']]
@@ -262,11 +258,6 @@ def AttachScaleWeights(events):
     if not scale_weight_doc:
         #raise Exception('LHEScaleWeight.__doc__ is empty or not available!')
         does_doc_exist = False
-        
-    #print("\n\n\n\n\n\n\n\n\n")
-    #print("LHEScaleWeight doc:", scale_weight_doc, ak.count(events.LHEScaleWeight, axis=-1)[0])
-    #print("LHEScaleWeight[4]", ak.to_list(events.LHEScaleWeight[:,4]))
-    #print("\n\n\n\n\n\n\n\n\n")
 
     # Define the mapping we are looking for the three scenarios
     scenarios_map = {

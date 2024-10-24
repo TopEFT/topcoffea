@@ -309,9 +309,7 @@ class CorrectedJetsFactory(object):
                 out_dict[self.name_map["JetPt"] + jec_lvl_tag] = out_dict[self.name_map["JetPt"] + f"_{lvl}"]
                 out_dict[self.name_map["JetMass"] + jec_lvl_tag] = out_dict[self.name_map["JetMass"] + f"_{lvl}"]
 
-                
-                
-        out_dict["jet_energy_correction"] = total_correction
+            out_dict["jet_energy_correction"] = total_correction
 
         # finally the lazy binding to the JEC
         init_pt = partial(
@@ -599,7 +597,7 @@ class CorrectedJetsFactory(object):
                     unc_down = central - unc
                     uncnames.append(junc_name.split("_")[-2])
                     uncvalues.append([unc_up, unc_down])
-                    
+
                 del juncjets
 
                 # Combine the up and down values into pairs

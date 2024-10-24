@@ -250,7 +250,7 @@ def AttachScaleWeights(events):
     # Check if LHEScaleWeight exists in the event
     if events.LHEScaleWeight is None:
         raise Exception('LHEScaleWeight not found!')
-    
+
     # Get the LHEScaleWeight documentation
     scale_weight_doc = events.LHEScaleWeight.__doc__
 
@@ -309,7 +309,7 @@ def AttachScaleWeights(events):
             "key": lambda match: f'MUF="{match[1]}" MUR="{match[2]}"'
         }
     }
-    
+
     # Determine the number of weights available
     len_of_wgts = ak.count(events.LHEScaleWeight, axis=-1)
     all_len_9_or_0_bool = ak.all((len_of_wgts == 9) | (len_of_wgts == 0))
@@ -318,7 +318,7 @@ def AttachScaleWeights(events):
     scale_map = None
     matches = None
     scenario = None
-    
+
     # Choose between the different cases based on the number of weights and the doc string
     if all_len_9_or_0_bool:
         if "renscfact" in scale_weight_doc:
@@ -338,7 +338,7 @@ def AttachScaleWeights(events):
         matches = re.findall(scenarios_map[scenario]["re_pattern"], scale_weight_doc)
         scale_map = scenarios_map[scenario]["scale_map"]
         key = scenarios_map[scenario]["key"]
-        
+
         # Parse the matches and build the scale indices dictionary
         for match in matches:
             index = int(match[0])  # Extract the index from the regex match

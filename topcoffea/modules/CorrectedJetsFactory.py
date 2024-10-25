@@ -100,6 +100,7 @@ def get_corr_inputs(jets, corr_obj, name_map, cache=None, corrections=None):
     if corrections is None:
         input_values = [awkward.flatten(jets[name_map[inp.name]]) for inp in corr_obj.inputs if (inp.name != "systematic")]
     else:
+        ## This is needed to propagate the previous level of corrections, before applying the next one
         input_values = []
         for inp in corr_obj.inputs:
             if inp.name == "systematic":
@@ -156,25 +157,8 @@ class CorrectedJetsFactory(object):
 
     def load_corrections_clib(self):
         """Load the corrections from correctionlib using the json_path in JECStack."""
-        self.cset = clib.CorrectionSet.from_file(self.jec_stack.json_path)
-        # Sanity check: Ensure all requested corrections are available
-        requested_corrections = self.jec_stack.jec_names_clib + self.jec_stack.jer_names_clib + self.jec_stack.jec_uncsources_clib
-        available_corrections = list(self.cset.keys())
-
-        # Find missing corrections
-        missing_corrections = [name for name in requested_corrections if name not in available_corrections]
-
-        # Raise error with detailed information about missing corrections
-        if missing_corrections:
-            raise ValueError(
-                f"Missing corrections in the CorrectionSet: {missing_corrections}. "
-                f"Available corrections are: {available_corrections}. "
-                f"Requested corrections are: {requested_corrections}"
-            )
-
-        # Populate corrections dictionary with objects from correctionlib
-        self.corrections = {name: self.cset[name] for name in requested_corrections}
-
+        self.corrections = self.jec_stack.corrections
+        
     def load_corrections_jecstack(self):
         """Use the corrections provided in the JECStack for non-clib scenario."""
         self.corrections = self.jec_stack.corrections
@@ -241,9 +225,6 @@ class CorrectedJetsFactory(object):
             corrections_list = []
             
             for lvl in self.jec_stack.jec_names_clib:
-                if "Uncertainty" in lvl:
-                    continue
-
                 cumCorr = None
                 if len(corrections_list) > 0:
                     ones = numpy.ones_like(corrections_list[-1], dtype=numpy.float32)
@@ -252,7 +233,8 @@ class CorrectedJetsFactory(object):
                 sf = self.corrections.get(lvl, None)
                 if sf is None:
                     raise ValueError(f"Correction {lvl} not found in self.corrections")
-                    
+
+                ## This automatically apply the previous levels of correction, when needed
                 inputs = get_corr_inputs(jets=jets, corr_obj=sf, name_map=jec_name_map, cache=lazy_cache, corrections=cumCorr)
                 correction = sf.evaluate(*inputs).astype(dtype=numpy.float32)
                 corrections_list.append(correction)
@@ -260,24 +242,25 @@ class CorrectedJetsFactory(object):
                     total_correction = numpy.ones_like(correction, dtype=numpy.float32)
                 total_correction *= correction
 
-                jec_lvl_tag = "_jec_" + lvl
+                if self.jec_stack.savecorr:
+                    jec_lvl_tag = "_jec_" + lvl
 
-                out_dict[f"jet_energy_correction_{lvl}"] = correction
-                init_pt_lvl = partial(
-                    awkward.virtual,
-                    operator.mul,
-                    args=(out_dict[f"jet_energy_correction_{lvl}"], out_dict[self.name_map["ptRaw"]]),
-                    cache=lazy_cache,
-                )
-                init_mass_lvl = partial(
-                    awkward.virtual,
-                    operator.mul,
-                    args=(out_dict[f"jet_energy_correction_{lvl}"], out_dict[self.name_map["massRaw"]]),
-                    cache=lazy_cache,
-                )
-                out_dict[self.name_map["JetPt"] + f"_{lvl}"] = init_pt_lvl(length=len(out), form=scalar_form)
-                out_dict[self.name_map["JetMass"] + f"_{lvl}"] = init_mass_lvl(length=len(out), form=scalar_form)
-
+                    out_dict[f"jet_energy_correction_{lvl}"] = correction
+                    init_pt_lvl = partial(
+                        awkward.virtual,
+                        operator.mul,
+                        args=(out_dict[f"jet_energy_correction_{lvl}"], out_dict[self.name_map["ptRaw"]]),
+                        cache=lazy_cache,
+                    )
+                    init_mass_lvl = partial(
+                        awkward.virtual,
+                        operator.mul,
+                        args=(out_dict[f"jet_energy_correction_{lvl}"], out_dict[self.name_map["massRaw"]]),
+                        cache=lazy_cache,
+                    )
+                    out_dict[self.name_map["JetPt"] + f"_{lvl}"] = init_pt_lvl(length=len(out), form=scalar_form)
+                    out_dict[self.name_map["JetMass"] + f"_{lvl}"] = init_mass_lvl(length=len(out), form=scalar_form)
+                    
         out_dict["jet_energy_correction"] = total_correction
 
         # Finally, the lazy binding to the JEC

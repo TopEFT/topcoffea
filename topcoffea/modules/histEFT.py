@@ -328,10 +328,9 @@ class HistEFT(SparseHist, family=_family):
         """
         if wc_list is not None:
             scaling = efth.remap_coeffs(self.wc_names,wc_list,np.array(self.values(flow=True)[:,1:-1]))
-            wc_names_lst = ['sm'] + wc_list
         else:
             scaling = self.values(flow=True)[:,1:-1]
-            wc_names_lst = ['sm'] + self.wc_names
+            wc_list = self.wc_names
         #check if any non-flow bins have zero sm contribution
         if ((scaling[:,0] == 0) & (scaling != 0).any(axis=1)).any():
             raise Exception('At least one bin found with no SM contribution and a BSM contribution!')

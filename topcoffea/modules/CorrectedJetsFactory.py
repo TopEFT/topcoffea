@@ -87,7 +87,7 @@ def jer_smear(
     smearfact = awkward._util.wrap(smearfact, awkward._util.behaviorof(jetPt))
     return smearfact
 
-
+# Wrapper function to apply jec corrections
 def rawvar_jec(jecval, rawvar, lazy_cache):
     return awkward.virtual(
         operator.mul,
@@ -96,6 +96,11 @@ def rawvar_jec(jecval, rawvar, lazy_cache):
     )
 
 def get_corr_inputs(jets, corr_obj, name_map, cache=None, corrections=None):
+    """
+    Helper function for getting values of input variables
+    given a dictionary and a correction object.
+    """
+
     if corrections is None:
         input_values = [awkward.flatten(jets[name_map[inp.name]]) for inp in corr_obj.inputs if (inp.name != "systematic")]
     else:

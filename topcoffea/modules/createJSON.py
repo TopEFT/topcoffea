@@ -130,12 +130,7 @@ def main():
             if not is_data:
                 if n_sum_of_lhe_weights is None:
                     n_sum_of_lhe_weights = list(i_sum_of_lhe_weights)
-                    print("\n n_sum_of_lhe_weights_new %s" % n_sum_of_lhe_weights)
                 else:
-                    print('\n n_sum_of_lhe_weight: %s' % (n_sum_of_lhe_weights))
-                    print('\n i_sum_of_lhe_weight: %s' % (i_sum_of_lhe_weights))
-                    print('\n length of n sum of lhe weights: %s' % (len(n_sum_of_lhe_weights)))
-                    print('\n lenght of i sum of lhe weights: %s' % (len(i_sum_of_lhe_weights)))
                     if len(n_sum_of_lhe_weights) != len(i_sum_of_lhe_weights):
                         raise Exception("Different length of LHE weight array in different files.")
                     for i in range(len(n_sum_of_lhe_weights)):

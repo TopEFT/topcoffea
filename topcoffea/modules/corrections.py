@@ -58,8 +58,10 @@ def get_method1a_wgt_doublewp(effA, effB, sfA, sfB, cutA, cutB, cutC):
 # Evaluate btag sf from central correctionlib json
 def btag_sf_eval(jet_collection,wp,year,method,syst):
     # Get the right sf json for the given year
+    is_run3 = False
+    is_run2 = False
 
-    dt_era = "Run3" if year[2] == "2" else "Run2"
+    is_run3 = True if year[2] == "2" else is_run2 = True
     clib_year = clib_year_map[year]
     fname = topcoffea_path(f"data/POG/BTV/{clib_year}/btagging.json.gz")
 

@@ -73,9 +73,9 @@ def btag_sf_eval(jet_collection,wp,year,method,syst):
     pt_flat = ak.where(pt_flat>1000.0,1000.0,pt_flat)
 
     # Evaluate the SF
-    if dt_era == "Run3":
+    if is_run3:
         sf = ak.ones_like(jet_collection.pt)
-    else:
+    elif is_run2:
         ceval = correctionlib.CorrectionSet.from_file(fname)
         sf_flat = ceval[method].evaluate(syst,wp,flav_flat,abseta_flat,pt_flat)
         sf = ak.unflatten(sf_flat,ak.num(jet_collection.pt))

@@ -3,7 +3,6 @@ import numpy
 import warnings
 from functools import partial, reduce
 import operator
-import correctionlib as clib
 from topcoffea.modules.JECStack import JECStack
 
 _stack_parts = ["jec", "junc", "jer", "jersf"]
@@ -158,7 +157,7 @@ class CorrectedJetsFactory(object):
     def load_corrections_clib(self):
         """Load the corrections from correctionlib using the json_path in JECStack."""
         self.corrections = self.jec_stack.corrections
-        
+
     def load_corrections_jecstack(self):
         """Use the corrections provided in the JECStack for non-clib scenario."""
         self.corrections = self.jec_stack.corrections
@@ -177,7 +176,7 @@ class CorrectedJetsFactory(object):
                 " Cannot evaluate jet corrections!" +
                 " Please supply mappings for these variables!"
             )
-            
+
     def build(self, jets, lazy_cache):
         if lazy_cache is None:
             raise Exception("CorrectedJetsFactory requires an awkward-array cache to function correctly.")
@@ -223,7 +222,7 @@ class CorrectedJetsFactory(object):
 
         elif self.tool == "clib":
             corrections_list = []
-            
+
             for lvl in self.jec_stack.jec_names_clib:
                 cumCorr = None
                 if len(corrections_list) > 0:
@@ -260,7 +259,7 @@ class CorrectedJetsFactory(object):
                     )
                     out_dict[self.name_map["JetPt"] + f"_{lvl}"] = init_pt_lvl(length=len(out), form=scalar_form)
                     out_dict[self.name_map["JetMass"] + f"_{lvl}"] = init_mass_lvl(length=len(out), form=scalar_form)
-                    
+
                     out_dict[self.name_map["JetPt"] + jec_lvl_tag] = out_dict[self.name_map["JetPt"] + f"_{lvl}"]
                     out_dict[self.name_map["JetMass"] + jec_lvl_tag] = out_dict[self.name_map["JetMass"] + f"_{lvl}"]
 
@@ -489,12 +488,12 @@ class CorrectedJetsFactory(object):
             out_dict["JER"] = awkward.zip(
                 {"up": up, "down": down}, depth_limit=1, with_name="JetSystematic"
             )
-                
+
         # Apply uncertainties (JES)
         has_junc = self.jec_stack.junc is not None
         if self.tool == "clib":
             has_junc = len(self.jec_stack.jec_uncsources_clib) > 0
-            
+
         if has_junc:
             junc_name_map = dict(self.name_map)
             if has_jer:

@@ -12,7 +12,7 @@ class JECStack:
     # Common fields for both scenarios
     corrections: Dict[str, any] = field(default_factory=dict)
     use_clib: bool = False  # Set to True if useclib is needed
-    
+
     # Fields for the clib scenario (useclib=True)
     jec_tag: Optional[str] = None
     jec_levels: Optional[List[str]] = field(default_factory=list)
@@ -76,7 +76,7 @@ class JECStack:
     def _initialize_jecstack(self):
         """Initialize the JECStack tools for the non-clib scenario."""
         assembled = self.assemble_corrections()
-        
+
         if len(assembled["jec"]) > 0:
             self.jec = FactorizedJetCorrector(**assembled["jec"])
         if len(assembled["junc"]) > 0:
@@ -96,7 +96,7 @@ class JECStack:
     def assemble_corrections(self):
         """Assemble corrections for both scenarios."""
         assembled = {"jec": {}, "junc": {}, "jer": {}, "jersf": {}}
-            
+
         for key in self.corrections.keys():
             if "Uncertainty" in key:
                 assembled["junc"][key] = self.corrections[key]
@@ -110,7 +110,7 @@ class JECStack:
                 print(f"Unknown correction type for key: {key}")
 
         return assembled
-    
+
     @property
     def blank_name_map(self):
         """Returns a blank name map for corrections."""

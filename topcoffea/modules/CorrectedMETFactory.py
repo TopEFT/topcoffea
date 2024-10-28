@@ -100,8 +100,6 @@ class CorrectedMETFactory(object):
                 with_name="METSystematic",
             )
 
-        
-        
         out = make_variant(
             MET[self.name_map["METpt"]],
             MET[self.name_map["METphi"]],

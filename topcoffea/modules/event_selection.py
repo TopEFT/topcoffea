@@ -9,6 +9,7 @@ import awkward as ak
 def passes_trg_inlst(events,trg_name_lst):
     tpass = np.zeros_like(np.array(events.MET.pt), dtype=bool)
     trg_info_dict = events.HLT
+
     # "fields" should be list of all triggers in the dataset
     common_triggers = set(trg_info_dict.fields) & set(trg_name_lst)
 

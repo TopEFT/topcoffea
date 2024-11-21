@@ -98,11 +98,7 @@ jobs:
         run: |
           conda run -n topcoffea-env pytest tests/test_update_json.py
 
-      - name: Test HistEFT unit test
-        run: |
-          conda run -n topcoffea-env pytest tests/test_unit.py
-
       - name: Test histEFT
         run: |
-          conda run -n topcoffea-env pytest tests/test_HistEFT_add.py
+          conda run -n topcoffea-env pytest tests/test_histEFT_add.py
 

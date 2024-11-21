@@ -3,6 +3,7 @@
 import hist
 import boost_histogram as bh
 import numpy as np
+import awkward as ak
 
 from typing import Any, List, Mapping, Union
 
@@ -87,7 +88,7 @@ class HistEFT(SparseHist, family=_family):
         if not wc_names:
             wc_names = []
 
-        n = len(wc_names)
+        n = ak.num(wc_names, axis=0)
         self._wc_names = {n: i for i, n in enumerate(wc_names)}
         self._wc_count = n
         self._quad_count = efth.n_quad_terms(n)
@@ -214,7 +215,7 @@ class HistEFT(SparseHist, family=_family):
         If eft_coeff is not given, then it is assumed to be [[1, 0, 0, ...], [1, 0, 0, ...], ...]
         """
 
-        n_events = len(values[self.dense_axis.name])
+        n_events = ak.num(values[self.dense_axis.name], axis=0)
 
         if eft_coeff is None:
             # if eft_coeff not given, assume values only for sm

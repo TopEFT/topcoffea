@@ -363,4 +363,10 @@ def AttachScaleWeights(events):
 
     # Assign the weights from the event to the respective fields dynamically using a loop
     for key in scale_indices:
-        events[key] = scale_weights[:, scale_indices[key]]
+        # Hack to change renorm<Up/Down>_fact<Up/Down> to renormfact_<Up/Down>
+        tkey = key
+        if tkey == 'renormUp_factUp':
+            tkey = 'renormfactUp'
+        elif tkey == 'renormDown_factDown':
+            tkey = 'renormfactDown'
+        events[tkey] = scale_weights[:, scale_indices[key]]

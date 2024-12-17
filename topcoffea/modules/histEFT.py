@@ -345,7 +345,6 @@ class HistEFT(SparseHist, family=_family):
         mask = scaling[:,0] != 0
         scaling[mask,:] = scaling[mask,:]/np.expand_dims(scaling[mask,0], 1) #divide by sm
         return scaling
-        
     @classmethod
     def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
         return super()._read_from_reduce(cat_axes, dense_axes, init_args, dense_hists)

@@ -85,7 +85,9 @@ def main():
         dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector=prefix)
         files = [f[len(prefix):] for f in dicFiles['files']]
         files_with_prefix = dicFiles['files']
-
+        if 'root://cms-xrd-global.cern.ch//store/mc/Run3Summer22NanoAODv12/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/50000/7c4f3eb2-3c7e-4c21-98ed-c1892bb3a057.root' in files_with_prefix:
+            print("ZZZ sample")
+            files_with_prefix.remove('root://cms-xrd-global.cern.ch//store/mc/Run3Summer22NanoAODv12/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/50000/7c4f3eb2-3c7e-4c21-98ed-c1892bb3a057.root')
         # This DAS command for some reason returns the output doubled and will look something like this:
         #   output = " \ndata  \ndata  \n "
         # So we strip off the whitespace and spurious newlines and then only take the first of the duplicates

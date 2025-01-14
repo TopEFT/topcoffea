@@ -29,7 +29,7 @@ def main():
 
     parser.add_argument('--includeLheWgts'  , action='store_true' , help = 'Include the set of LHE weights')
 
-    parser.add_argument('--skipFileName', default=None            , help = 'Skip this root file')
+    parser.add_argument('--skipFileName', nargs='+', default=[], help = 'Skip this root file')
 
     args, unknown = parser.parse_known_args()
     #cfgfile     = args.cfgfile
@@ -88,11 +88,11 @@ def main():
         files = [f[len(prefix):] for f in dicFiles['files']]
         files_with_prefix = dicFiles['files']
         # Skip a root file if it's specified
-        if skip_file_name is not None:
-            if skip_file_name in files_with_prefix:
-                print(f"\nNote: Skipping file {skip_file_name}.\n")
-                files_with_prefix.remove(skip_file_name)
-                files.remove(skip_file_name[len(prefix):])
+        for skip_file in skip_file_name:
+            if skip_file in files_with_prefix:
+                print(f"\nNote: Skipping file {skip_file}.\n")
+                files_with_prefix.remove(skip_file)
+                files.remove(skip_file[len(prefix):])
         # This DAS command for some reason returns the output doubled and will look something like this:
         #   output = " \ndata  \ndata  \n "
         # So we strip off the whitespace and spurious newlines and then only take the first of the duplicates

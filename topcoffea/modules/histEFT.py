@@ -318,7 +318,7 @@ class HistEFT(SparseHist, family=_family):
             ),
         )
 
-    def make_scaling(self, wc_list=None):
+    def make_scaling(self, flow='show', wc_list=None):
         """
         returns np.Array of scaling for scalings.json with the interference model list with flow bins
         ----------
@@ -342,6 +342,12 @@ class HistEFT(SparseHist, family=_family):
                 step += 1
             else:
                 scaling[:,i] /= 2
+        if flow=='sum':
+            scaling[-2] += scaling[-1]
+            scaling[1] += scaling[0]
+            scaling = scaling[1:-1]
+        elif flow !='show':
+            raise Exception(f'Invalid flow options {flow} selected! Please select from "show" or "sum".')
         mask = scaling[:,0] != 0
         scaling[mask,:] = scaling[mask,:]/np.expand_dims(scaling[mask,0], 1) #divide by sm
         return scaling

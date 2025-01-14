@@ -92,6 +92,7 @@ def main():
             if skip_file_name in files_with_prefix:
                 print(f"\nNote: Skipping file {skip_file_name}.\n")
                 files_with_prefix.remove(skip_file_name)
+                files.remove(skip_file_name[len(prefix):])
         # This DAS command for some reason returns the output doubled and will look something like this:
         #   output = " \ndata  \ndata  \n "
         # So we strip off the whitespace and spurious newlines and then only take the first of the duplicates

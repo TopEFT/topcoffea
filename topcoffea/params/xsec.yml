@@ -101,8 +101,10 @@ ZZTo4LK                 : 1.3816
 # From AN-19-144 (AN for VVV observation)
 ggHToZZ4L : 0.011814
 
-ggToZHToHToWWTo2L2Nu    : 0.00275
-qqToZHToZTo2L           : 0.0018639
+#https://twiki.cern.ch/twiki/bin/view/LHCPhysics/HiggsXSBR#Production_cross_sections_an_AN1
+#Apply branching fractions to production cross sections found above
+ggToZHToHToWWTo2L2Nu    : 0.00282
+qqToZHToZTo2L           : 0.00177
 
 WWW                     : 0.2086
 WWZ                     : 0.1651
@@ -184,14 +186,15 @@ ZZZ_13p6TeV			       : 0.01591		#XSDB
 SSWW_TT_13p6TeV                        : 0.01762
 SSWW_TL_13p6TeV                        : 0.01152
 SSWW_LL_13p6TeV                        : 0.002177
-ZHToHtoWWto2L2Nu_13p6TeV               : 0.0195
 
 #Numbers from HIG-24-013
 ZZto4L_13p6TeV            : 1.39
 ggHToZZ4L_13p6TeV         : 0.01434
 
-#GenXSecAnalyzer
-GluGluZHToHtoWWto2L2Nu_13p6TeV   : 0.0033
+#https://twiki.cern.ch/twiki/bin/view/LHCPhysics/LHCHWG136TeVxsec_extrap#ppZH_NNLO_QCD_NLO_EW
+#Apply branching fractions to cross sections in link above
+GluGluZHToHtoWWto2L2Nu_13p6TeV   : 0.00312
+ZHToHtoWWto2L2Nu_13p6TeV         : 0.0186
 
 # qq-ZZ sample scaled by the 1.1 K factor as per SMP-19-001
 ZZTo4LK_13p6TeV                  : 1.529

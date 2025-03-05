@@ -28,15 +28,14 @@ default_modules = {
         "packages": [
             f"python={py_version}",
             "pip",
-            "coffea",
-            "conda",
+            "conda<2025.1.0",
             "conda-pack",
-            "dill",
+            "ndcctools>=7.14.7",
             "xrootd",
             "setuptools==70.3.0",
         ],
     },
-    "pip": ["topcoffea"],
+    "pip": ["topcoffea", "coffea==0.7.26"],
 }
 
 pip_local_to_watch = {"topcoffea": ["topcoffea", "setup.py"]}

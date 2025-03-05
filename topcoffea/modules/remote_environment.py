@@ -12,7 +12,6 @@ from pathlib import Path
 
 from typing import Dict, List, Optional
 
-import coffea
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
@@ -23,14 +22,13 @@ py_version = "{}.{}.{}".format(
     sys.version_info[0], sys.version_info[1], sys.version_info[2]
 )  # 3.8 or 3.9, or etc.
 
-coffea_version = coffea.__version__
-
 default_modules = {
     "conda": {
         "channels": ["conda-forge"],
         "packages": [
             f"python={py_version}",
             "pip",
+            "coffea",
             "conda",
             "conda-pack",
             "dill",
@@ -38,10 +36,26 @@ default_modules = {
             "setuptools==70.3.0",
         ],
     },
-    "pip": [f"coffea=={coffea_version}", "topcoffea"],
+    "pip": ["topcoffea"],
 }
 
 pip_local_to_watch = {"topcoffea": ["topcoffea", "setup.py"]}
+
+
+def _current_versions_conda(conda_env_path=None):
+    if not conda_env_path:
+        conda_env_path = os.environ['CONDA_PREFIX']
+
+    proc = subprocess.run(['conda', 'list', '--export', '--json'], check=True, stdout=subprocess.PIPE)
+    raw_pkgs = json.loads(proc.stdout.decode())
+
+    pkgs = {}
+    for pkg in raw_pkgs:
+        name = pkg['name']
+        version = f"{pkg['version']}={pkg['build_string']}"
+        pkgs[name] = f"{name}={version}"
+
+    return pkgs
 
 
 def _check_current_env(spec: Dict):
@@ -50,6 +64,8 @@ def _check_current_env(spec: Dict):
         subprocess.check_call(['conda', 'env', 'export', '--json'], stdout=f)
         spec_file = open(f.name, "r")
         current_spec = json.load(spec_file)
+        current_spec['pinning'] = {'conda': _current_versions_conda()}
+
         if 'dependencies' in current_spec:
             # get current conda packages
             conda_deps = {
@@ -97,6 +113,7 @@ def _create_env(env_name: str, spec: Dict, force: bool = False):
     with tempfile.NamedTemporaryFile() as f:
         logger.info("Checking current conda environment")
         spec = _check_current_env(spec)
+
         packages_json = json.dumps(spec)
         logger.info("base env specification:{}".format(packages_json))
         f.write(packages_json.encode())
@@ -183,7 +200,7 @@ def _clean_cache(cache_size, *current_files):
 def get_environment(
     extra_conda: Optional[List[str]] = None,
     extra_pip: Optional[List[str]] = None,
-    extra_pip_local: Optional[dict[str]] = None,
+    extra_pip_local: Optional[dict[str, str]] = None,
     force: bool = False,
     unstaged: str = "rebuild",
     cache_size: int = 3,
@@ -202,6 +219,7 @@ def get_environment(
         spec_pip_local_to_watch.update(extra_pip_local)
 
     packages_hash = hashlib.sha256(json.dumps(spec).encode()).hexdigest()[0:8]
+
     pip_paths = _find_local_pip()
     pip_commits = _commits_local_pip(pip_paths)
     pip_check = _compute_commit(pip_paths, pip_commits)

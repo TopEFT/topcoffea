@@ -72,8 +72,6 @@ def btag_sf_eval(jet_collection,wp,year,method,syst):
 
     # Evaluate the SF
     ceval = correctionlib.CorrectionSet.from_file(fname)
-    corrections = ceval[method]
-
     sf_flat = ceval[method].evaluate(syst,wp,flav_flat,abseta_flat,pt_flat)
     sf = ak.unflatten(sf_flat,ak.num(jet_collection.pt))
 

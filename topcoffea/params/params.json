@@ -44,7 +44,18 @@
     "btag_wp_medium_2022EE" : 0.3196,
     "btag_wp_medium_2023" : 0.2431,
     "btag_wp_medium_2023BPix" : 0.2435,
+    
 
+    "btag_wp_loose_ParT_2022"  : 0.047,
+    "btag_wp_loose_ParT_2022EE"  : 0.0499,
+    "btag_wp_loose_ParT_2023"  : 0.0358,
+    "btag_wp_loose_ParT_2023BPix"  : 0.0359,
+    "btag_wp_medium_ParT_2022" : 0.245,
+    "btag_wp_medium_ParT_2022EE" : 0.2605,
+    "btag_wp_medium_ParT_2023" : 0.1917,
+    "btag_wp_medium_ParT_2023BPix" : 0.1919,
+    
+    
     "pu_w" : 69200,
     "pu_w_up" : 72400,
     "pu_w_down" : 66000

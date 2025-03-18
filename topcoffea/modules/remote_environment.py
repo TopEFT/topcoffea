@@ -45,7 +45,12 @@ def _current_versions_conda(conda_env_path=None):
     if not conda_env_path:
         conda_env_path = os.environ['CONDA_PREFIX']
 
-    proc = subprocess.run(['conda', 'list', '--export', '--json'], check=True, stdout=subprocess.PIPE)
+    proc = subprocess.run(
+        ["conda", "list", "--export", "--json"],
+        check=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.DEVNULL,
+    )
     raw_pkgs = json.loads(proc.stdout.decode())
 
     pkgs = {}
@@ -60,7 +65,7 @@ def _current_versions_conda(conda_env_path=None):
 def _check_current_env(spec: Dict):
     with tempfile.NamedTemporaryFile() as f:
         # export current conda enviornment
-        subprocess.check_call(['conda', 'env', 'export', '--json'], stdout=f)
+        subprocess.check_call(['conda', 'env', 'export', '--json'], stdout=f, stdin=subprocess.DEVNULL)
         spec_file = open(f.name, "r")
         current_spec = json.load(spec_file)
         current_spec['pinning'] = {'conda': _current_versions_conda()}
@@ -118,12 +123,14 @@ def _create_env(env_name: str, spec: Dict, force: bool = False):
         f.write(packages_json.encode())
         f.flush()
         logger.info("Creating environment {}".format(env_name))
-        subprocess.check_call(['poncho_package_create', f.name, env_name])
+        subprocess.check_call(['poncho_package_create', f.name, env_name], stdin=subprocess.DEVNULL)
         return env_name
 
 
 def _find_local_pip():
-    edit_raw = subprocess.check_output([sys.executable, '-m' 'pip', 'list', '--editable']).decode()
+    edit_raw = subprocess.check_output(
+        [sys.executable, "-m" "pip", "list", "--editable"], stdin=subprocess.DEVNULL
+    ).decode()
 
     # drop first two lines, which are just a header
     edit_raw = edit_raw.split('\n')[2:]
@@ -149,17 +156,23 @@ def _commits_local_pip(paths):
                 to_watch = [":(top){}".format(d) for d in paths]
 
             try:
-                commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=path).decode().rstrip()
+                commit = (
+                    subprocess.check_output(
+                        ["git", "rev-parse", "HEAD"], cwd=path, stdin=subprocess.DEVNULL
+                    )
+                    .decode()
+                    .rstrip()
+                )
             except FileNotFoundError:
                 raise FileNotFoundError("Could not find the git executable in PATH")
 
             changed = True
             cmd = ['git', 'status', '--porcelain', '--untracked-files=no']
             try:
-                changed = subprocess.check_output(cmd + to_watch, cwd=path).decode().rstrip()
+                changed = subprocess.check_output(cmd + to_watch, cwd=path, stdin=subprocess.DEVNULL).decode().rstrip()
             except subprocess.CalledProcessError:
                 logger.warning("Could not apply git paths-to-watch filters. Trying without them...")
-                changed = subprocess.check_output(cmd, cwd=path).decode().rstrip()
+                changed = subprocess.check_output(cmd, cwd=path, stdin=subprocess.DEVNULL).decode().rstrip()
 
             if changed:
                 logger.warning(

@@ -1,12 +1,17 @@
 #! /usr/bin/env python
 
 import hist
-import boost_histogram as bh
 import numpy as np
+import dask.array as da
+import hist.dask as dah
+import dask
 
+from itertools import chain
+
+import numbers
 from typing import Any, List, Mapping, Union
 
-from topcoffea.modules.sparseHist import SparseHist
+from topcoffea.modules.sparseHist import SparseState, SparseHist, SparseHistResult
 import topcoffea.modules.eft_helper as efth
 
 try:
@@ -17,25 +22,192 @@ except ImportError:
     Self = Any
 
 
-_family = hist
+class HistEFTState(SparseState):
+    def __init__(
+        self,
+        category_axes,
+        dense_axis,
+        hist_cls,
+        array_backend,
+        wc_names: Union[List[str], None] = None,
+        label=None,
+        **kwargs,
+    ) -> None:
+        """HistEFT initialization is similar to hist.Hist, with the following restrictions:
+        - Exactly one axis can be dense (i.e. hist.axis.Regular, hist.axis.Variable, or his.axis.Integer)
+        - The dense axis should be the last specified in the list of arguments.
+        - Categorical axes should be specified with growth=True.
+        """
+
+        if not wc_names:
+            wc_names = []
+
+        n = len(wc_names)
+        self.wc_names = {n: i for i, n in enumerate(wc_names)}
+        self.wc_count = n
+        self.quad_count = efth.n_quad_terms(n)
+        self.array_backend = array_backend
+
+        self._needs_rebinning = kwargs.pop("rebin", False)
+        if self._needs_rebinning:
+            raise ValueError("Do not know how to rebin yet...")
+
+        if "quadratic_term" in kwargs:
+            self.coeff_axis = kwargs.pop("quadratic_term")
+        else:
+            # no axis for quadratic_term found, creating our own.
+            self.coeff_axis = hist.axis.Integer(
+                start=0, stop=self.quad_count, name="quadratic_term"
+            )
+
+        self.dense_axis = dense_axis
+        try:
+            self.dense_axis_name = dense_axis.name
+        except AttributeError:
+            # weird construct because the axis may be a dask proxy
+            self.dense_axis_name = dense_axis.axes[0].name
+
+        reserved_names = ["quadratic_term", "sample", "weight", "thread"]
+        if any(
+            name in reserved_names
+            for name in chain([self.dense_axis_name], [a.name for a in category_axes])
+        ):
+            raise ValueError(
+                f"No axis may have one of the following names: {','.join(reserved_names)}"
+            )
+        super().__init__(
+            category_axes,
+            dense_axes=[self.dense_axis, self.coeff_axis],
+            hist_cls=hist_cls,
+            label=label,
+            **kwargs,
+        )
+
+    def extra_constructor_args(self):
+        return {"wc_names": self.wc_names}
+
+    def index_of_wc(self, wc: str):
+        return self.wc_names[wc]
+
+    def should_rebin(self):
+        return self._needs_rebinning
+
+    def _fill_flatten(self, a, n_events):
+        # manipulate input arrays into flat arrays. broadcast_to and ravel
+        # used so that arrays are not duplicated in memory
+        if a.ndim > 2 or (a.ndim == 2 and (a.shape != (n_events, 1))):
+            raise ValueError(
+                "Incompatible dimensions between data and Wilson coefficients."
+            )
+
+        if a.ndim > 1:
+            a = a.ravel()
+
+        # turns [e0, e1, ...] into [[e0, e0, ...],
+        #                           [e1, e1, ...],
+        #                            [...       ]]
+        # and then into       [e0, e0, ..., e1, e1, ..., e2, e2, ...]
+        # each value repeated the number of quadratic coefficients.
+        return self.array_backend.repeat(a, self.quad_count)
+
+    def _fill_indices(self, n_events):
+        # turns [0, 1, 2, ..., num of quadratic coeffs - 1]
+        # into:
+        # [0, 1, 2, ..., 0, 1, 2 ...,]
+        # repeated n_events times.
+        return self.array_backend.broadcast_to(
+            np.ogrid[0 : self.quad_count],
+            (n_events, self.quad_count),
+        ).ravel()
+
+    def chunks(self, array_like):
+        if hasattr(array_like, "chunks"):
+            return array_like.chunks
+        else:
+            return None
+
+    def rechunk(self, array_like, chunks):
+        if chunks:
+            return array_like.rechunk(chunks)
+        else:
+            return array_like
+
+    def fill(
+        self,
+        weight=None,
+        sample=None,
+        threads=None,
+        eft_coeff: ArrayLike = None,  # [num of events x (num of wc coeffs + 1)]
+        **kwargs,
+    ) -> Self:
+        """
+        Insert data into the histogram using names and indices, return
+        a HistEFT object.
+
+        cat axes:  "s1"                    each categorical axis with one value to fill
+        dense axis:[ e0, e1, ... ]         each entry is the value for one event.
+        weight:    [ w0, w1, ... ]         weight per event
+        eft_coeff: [[c00, c01, c02, ...]   each row is the coefficient values for one event,
+                    [c10, c11, c12, ...]
+                    ...                 ]  cij is the value of jth coefficient for the ith event.
+                                           ei, wi, and ci* go together.
+
+        If eft_coeff is not given, then it is assumed to be [[1, 0, 0, ...], [1, 0, 0, ...], ...]
+        """
+
+        events = kwargs.pop(self.dense_axis_name)
+        n_events = events.shape[0]
+
+        # turn into [e0, e0, ..., e1, e1, ..., e2, e2, ...]
+        events = self._fill_flatten(events, n_events)
+        chunks = self.chunks(events)
+
+        if eft_coeff is None:
+            eft_coeff = 1  # if no eft_coeff, then it is simply sm, which does not weight the event
+
+        # index for coefficient axes.
+        # [ 0, 1, 2, ..., 0, 1, 2, ...]
+        indices = self.rechunk(self._fill_indices(n_events), chunks)
+
+        # turn into: [c00, c01, c02, ..., c10, c11, c12, ...]
+        if not isinstance(eft_coeff, numbers.Number):
+            eft_coeff = self.rechunk(eft_coeff.ravel(), chunks)
+
+        # if weight is also given, comine it with eft_coeff. We use weight in the call to fill to pass the
+        # coefficients
+        if weight is None:
+            weight = 1
+        elif not isinstance(weight, numbers.Number):
+            weight = self.rechunk(self._fill_flatten(weight, n_events), chunks)
+        eft_coeff = eft_coeff * weight
+
+        # fills:
+        # [e0,      e0,      e0    ..., e1,     e1,     e1,     ...]
+        # [ 0,      1,       2,    ..., 0,      1,      2,      ...]
+        # [c00*w0, c01*w0, c02*w0, ..., c10*w1, c11*w1, c12*w1, ...]
+        super().fill(
+            quadratic_term=indices,
+            **{self.dense_axis_name: events},
+            weight=eft_coeff,
+            **kwargs,
+        )
 
 
-class HistEFT(SparseHist, family=_family):
+class HistEFT(SparseHist):
     """Histogram specialized to hold Wilson Coefficients.
     Example:
-    ```
     h = HistEFT(
-        hist.axis.StrCategory(["ttH"], name="process", growth=True),
-        hist.axis.Regular(
-            name="ht",
-            label="ht [GeV]",
-            bins=3,
-            start=0,
-            stop=30,
-            flow=True,
-        ),
-        wc_names=["ctG"],
-        label="Events",
+            category_axes=[hist.axis.StrCategory([], name="process", growth=True)]
+            dense_axis=hist.dask.Hist.new.Reg(
+                                        name="ht",
+                                        label="ht [GeV]",
+                                        bins=3,
+                                        start=0,
+                                        stop=30,
+                                        flow=True,
+                                    ),
+            wc_names=["ctG"],
+            label="Events",
     )
 
     h.fill(
@@ -53,217 +225,120 @@ class HistEFT(SparseHist, family=_family):
         ],
     )
 
+    (out,) = dask.compute(h)
+
     # eval at 0, returns a dictionary from categorical axes bins to array, same as just sm,
     # {('ttH',): array([-100. ,   3.6,    1.4,    1.5,  600. ])}
-    h.eval({})
-    h.eval({"ctG": 0})     # same thing
-    h.eval(np.zeros((1,))  # same thing
+    out.eval({})
+    out.eval({"ctG": 0})     # same thing
+    out.eval(np.zeros((1,))  # same thing
 
     # eval at 1, same as adding all bins together per bins of dense axis.
     # {('ttH',): array([-600. ,   19.8,    7.2,    7.5,  600. ])}
-    h.eval({"ctG": 1})     # same thing
-    h.eval(np.ones((1,))  # same thing
+    out.eval({"ctG": 1})     # same thing
+    out.eval(np.ones((1,))  # same thing
 
     # instead of h.eval(...), h.as_hist(...) may be used to create a standard hist.Hist with the
     # result of the evaluation:
-    hn = h.as_hist({"ctG": 0.02})
+    hn = out.as_hist({"ctG": 0.02})
     hn.plot1d()
     ```
     """
 
     def __init__(
         self,
-        *args,
+        category_axes,
+        dense_axis,
         wc_names: Union[List[str], None] = None,
-        **kwargs,
+        state_cls=HistEFTState,
     ) -> None:
         """HistEFT initialization is similar to hist.Hist, with the following restrictions:
-        - All axes should have a name.
         - Exactly one axis can be dense (i.e. hist.axis.Regular, hist.axis.Variable, or his.axis.Integer)
         - The dense axis should be the last specified in the list of arguments.
         - Categorical axes should be specified with growth=True.
         """
-
-        if not wc_names:
-            wc_names = []
-
-        n = len(wc_names)
-        self._wc_names = {n: i for i, n in enumerate(wc_names)}
-        self._wc_count = n
-        self._quad_count = efth.n_quad_terms(n)
-
-        self._init_args_eft = {"wc_names": wc_names}
-
-        self._needs_rebinning = kwargs.pop("rebin", False)
-        if self._needs_rebinning:
-            raise ValueError("Do not know how to rebin yet...")
-
-        kwargs.setdefault("storage", "Double")
-        if kwargs["storage"] != "Double":
-            raise ValueError("only 'Double' storage is supported")
-
-        if args[-1].name == "quadratic_term":
-            self._coeff_axis = args[-1]
-            args = args[:-1]
-        else:
-            # no axis for quadratic_term found, creating our own.
-            self._coeff_axis = hist.axis.Integer(
-                start=0, stop=self._quad_count, name="quadratic_term"
-            )
-
-        self._dense_axis = args[-1]
-        if not isinstance(
-            self._dense_axis, (bh.axis.Regular, bh.axis.Variable, bh.axis.Integer)
-        ):
-            raise ValueError("dense axis should be the last specified")
-
-        reserved_names = ["quadratic_term", "sample", "weight", "thread"]
-        if any([axis.name in reserved_names for axis in args]):
-            raise ValueError(
-                f"No axis may have one of the following names: {','.join(reserved_names)}"
-            )
-
-        super().__init__(*args, self._coeff_axis, **kwargs)
-
-    def empty_from_axes(self, categorical_axes=None, dense_axes=None, **kwargs):
-        return super().empty_from_axes(
-            categorical_axes, dense_axes, **self._init_args_eft, **kwargs
+        self.state = state_cls(
+            category_axes,
+            dense_axis=dense_axis,
+            array_backend=da,
+            hist_cls=dah.Hist,
+            wc_names=wc_names,
         )
 
-    @property
-    def wc_names(self):
-        return list(self._wc_names)
+    __dask_scheduler__ = staticmethod(dask.threaded.get)
 
-    def index_of_wc(self, wc: str):
-        return self._wc_names[wc]
-
-    def quadratic_term_index(self, *wcs: List[str]):
-        """Given the name of two coefficients, it returns the index
-        of the corresponding quadratic coefficient. E.g., if the
-        histogram was defined with wc_names=["ctG"]:
-
-        h.quadratic_term_index("sm", "sm")   -> 0
-        h.quadratic_term_index("sm", "ctG")  -> 1
-        h.quadratic_term_index("ctG", "ctG") -> 2
-        """
-
-        def str_to_index(s):
-            if s == "sm":
-                return 0
-            else:
-                return self.index_of_wc(s) + 1
-
-        if len(wcs) != 2:
-            raise ValueError("List of coefficient names should have length 2")
-
-        wc1, wc2 = map(str_to_index, wcs)
-        if wc1 < wc2:
-            wc1, wc2 = wc2, wc1
-
-        return int((((wc1 + 1) * wc1) / 2) + wc2)
-
-    def should_rebin(self):
-        return self._needs_rebinning
-
-    @property
-    def dense_axis(self):
-        return self._dense_axis
-
-    def _fill_flatten(self, a, n_events):
-        # manipulate input arrays into flat arrays. broadcast_to and ravel used so that arrays are not duplicated in memory
-        a = np.asarray(a)
-        if a.ndim > 2 or (a.ndim == 2 and (a.shape != (n_events, 1))):
-            raise ValueError(
-                "Incompatible dimensions between data and Wilson coefficients."
+    def __dask_postcompute__(self):
+        def post(vs):
+            pairs = sorted((k, h) for (k, h) in vs[0])
+            return HistEFTResult(
+                self.state.category_axes,
+                histograms={k: h for (k, h) in pairs},
+                wc_names=self.state.wc_names,
             )
 
-        if a.ndim > 1:
-            a = a.ravel()
-
-        # turns [e0, e1, ...] into [[e0, e0, ...],
-        #                           [e1, e1, ...],
-        #                            [...       ]]
-        # and then into       [e0, e0, ..., e1, e1, ..., e2, e2, ...]
-        # each value repeated the number of quadratic coefficients.
-        return np.broadcast_to(a, (self._quad_count, n_events)).T.ravel()
-
-    def _fill_indices(self, n_events):
-        # turns [0, 1, 2, ..., num of quadratic coeffs - 1]
-        # into:
-        # [0, 1, 2, ..., 0, 1, 2 ...,]
-        # repeated n_events times.
-        return np.broadcast_to(np.ogrid[0: self._quad_count], (n_events, self._quad_count)).ravel()
+        return post, ()
 
     def fill(
         self,
+        weight=None,
+        sample=None,
+        threads=None,
         eft_coeff: ArrayLike = None,  # [num of events x (num of wc coeffs + 1)]
-        **values,
+        **kwargs,
     ) -> Self:
-        """
-        Insert data into the histogram using names and indices, return
-        a HistEFT object.
-
-        cat axes:  "s1"                    each categorical axis with one value to fill
-        dense axis:[ e0, e1, ... ]         each entry is the value for one event.
-        weight:    [ w0, w1, ... ]         weight per event
-        eft_coeff: [[c00, c01, c02, ...]   each row is the coefficient values for one event,
-                    [c10, c11, c12, ...]
-                    ...                 ]  cij is the value of jth coefficient for the ith event.
-                                           ei, wi, and ci* go together.
-
-        If eft_coeff is not given, then it is assumed to be [[1, 0, 0, ...], [1, 0, 0, ...], ...]
-        """
-
-        n_events = len(values[self.dense_axis.name])
-
-        if eft_coeff is None:
-            # if eft_coeff not given, assume values only for sm
-            eft_coeff = np.broadcast_to(
-                np.concatenate((np.ones((1,)), np.zeros((self._quad_count - 1,)))),
-                (n_events, self._quad_count),
-            )
-
-        eft_coeff = np.asarray(eft_coeff)
-
-        # turn into [e0, e0, ..., e1, e1, ..., e2, e2, ...]
-        values[self._dense_axis.name] = self._fill_flatten(
-            values[self._dense_axis.name], n_events
+        self.state.fill(
+            weight=weight, sample=sample, threads=threads, eft_coeff=eft_coeff, **kwargs
         )
 
-        # turn into: [c00, c01, c02, ..., c10, c11, c12, ...]
-        eft_coeff = eft_coeff.ravel()
 
-        # index for coefficient axes.
-        # [ 0, 1, 2, ..., 0, 1, 2, ...]
-        indices = self._fill_indices(n_events)
+class HistEFTResult(SparseHistResult):
+    def __init__(
+        self,
+        category_axes,
+        histograms=None,
+        dense_axis=None,
+        wc_names: Union[List[str], None] = None,
+        state_cls=HistEFTState,
+    ) -> None:
+        """Result from compute of SparseHist.
+        - histograms is a dictionary
+        """
+        if not histograms and not dense_axis:
+            raise ValueError(
+                "At least one one of histograms or dense_axis should be specified."
+            )
 
-        weight = values.pop("weight", None)
-        if weight is not None:
-            weight = self._fill_flatten(weight, n_events)
-            eft_coeff = eft_coeff * weight
+        if not dense_axis:
+            first = next(iter(histograms.values()))
+            dense_axis = first.axes[0]
 
-        # fills:
-        # [e0,      e0,      e0    ..., e1,     e1,     e1,     ...]
-        # [ 0,      1,       2,    ..., 0,      1,      2,      ...]
-        # [c00*w0, c01*w0, c02*w0, ..., c10*w1, c11*w1, c12*w1, ...]
-        super().fill(quadratic_term=indices, **values, weight=eft_coeff)
+        self.state = state_cls(
+            category_axes,
+            dense_axis=dense_axis,
+            array_backend=np,
+            hist_cls=hist.Hist,
+            wc_names=wc_names,
+        )
+        if histograms:
+            for k, h in histograms.items():
+                self.state.dense_hists[k] += h
 
     def _wc_for_eval(self, values):
         """Set the WC values used to evaluate the bin contents of this histogram
         where the WCs are specified as keyword arguments.  Any WCs not listed are set to zero.
         """
         if values is None:
-            return np.zeros(self._wc_count)
+            return np.zeros(self.state.wc_count)
 
         result = values
         if isinstance(values, Mapping):
-            result = np.zeros(self._wc_count)
+            result = np.zeros(self.state.wc_count)
             for wc, val in values.items():
                 try:
-                    index = self._wc_names[wc]
+                    index = self.state.index_of_wc(wc)
                     result[index] = val
                 except KeyError:
-                    msg = f'This HistEFT does not know about the "{wc}" Wilson coefficient. Known coefficients: {list(self._wc_names.keys())}'
+                    msg = f'Unknown Wilson coefficient "{wc}". Known are coefficients: {list(self.wc_names.keys())}'
                     raise LookupError(msg)
 
         return np.asarray(result)
@@ -293,28 +368,31 @@ class HistEFT(SparseHist, family=_family):
         overflow: bool
             Whether to include under and overflow bins.
         """
+        first = next(iter(self.state.dense_hists.values()))
+        dense_axes = first.axes
+
         evals = self.eval(values=values)
         nhist = hist.Hist(
-            *[axis for axis in self.axes if axis != self._coeff_axis], **self._init_args
+            *list(self.state.category_axes),
+            *[axis for axis in dense_axes if axis.name != self.state.coeff_axis.name],
+            label=self.state.label,
         )
 
-        sparse_names = self.categorical_axes.name
         for sp_val, arrs in evals.items():
-            sp_key = dict(zip(sparse_names, sp_val))
+            sp_key = dict(zip(self.state.category_names, sp_val))
             nhist[sp_key] = arrs
         return nhist
 
     def __reduce__(self):
-        args = dict(self._init_args)
-        args.update(self._init_args_eft)
-
         return (
             type(self)._read_from_reduce,
             (
-                list(self.categorical_axes),
-                [self.dense_axis],
-                args,
-                self._dense_hists,
+                list(self.state.category_axes),
+                self.state.dense_axis,
+                list(self.state.dense_hists.keys()),
+                list(self.state.dense_hists.values()),
+                type(self.state),
+                list(self.state.wc_names),
             ),
         )
 
@@ -352,8 +430,16 @@ class HistEFT(SparseHist, family=_family):
         scaling[mask,:] = scaling[mask,:]/np.expand_dims(scaling[mask,0], 1) #divide by sm
         return scaling
     @classmethod
-    def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
-        return super()._read_from_reduce(cat_axes, dense_axes, init_args, dense_hists)
+    def _read_from_reduce(
+        cls, cat_axes, dense_axis, cat_keys, dense_values, state_cls, wc_names
+    ):
+        return cls(
+            cat_axes,
+            dense_axis=dense_axis,
+            histograms={k: h for k, h in zip(cat_keys, dense_values)},
+            state_cls=state_cls,
+            wc_names=wc_names,
+        )
 
     # this method should be moved to eft_helper once HistEFT is replaced.
     # the only change is that hist.view includes a under/overflow columns, thus
@@ -386,3 +472,28 @@ class HistEFT(SparseHist, family=_family):
                 out += q_coeffs[..., index] * wcs[i] * wcs[j]
                 index += 1
         return out
+
+    def fill(
+        self,
+        weight=None,
+        sample=None,
+        threads=None,
+        eft_coeff: ArrayLike = None,  # [num of events x (num of wc coeffs + 1)]
+        **kwargs,
+    ) -> Self:
+        self.state.fill(
+            weight=weight, sample=sample, threads=threads, eft_coeff=eft_coeff, **kwargs
+        )
+
+    def __copy__(self):
+        """Empty histograms with the same bins."""
+        other = type(self)(
+            category_axes=self.state.category_axes,
+            dense_axis=self.state.dense_axis,
+            state_cls=type(self.state),
+            wc_names=self.state.wc_names,
+        )
+
+        for k, h in self.state.dense_hists.items():
+            other[k] = self.state.make_dense()
+        return other

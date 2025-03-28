@@ -1,13 +1,13 @@
 # Event selection functions
 
 import numpy as np
-import awkward as ak
+import dask_awkward as dak
 
 # This is a helper function called by trg_pass_no_overlap
 #   - Takes events objects, and a lits of triggers
 #   - Returns an array the same length as events, elements are true if the event passed at least one of the triggers and false otherwise
 def passes_trg_inlst(events,trg_name_lst):
-    tpass = np.zeros_like(np.array(events.MET.pt), dtype=bool)
+    tpass = dak.zeros_like(events.MET.pt, dtype=bool)
     trg_info_dict = events.HLT
 
     # "fields" should be list of all triggers in the dataset
@@ -39,8 +39,8 @@ def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict,er
         year = "2023"
 
     # Initialize ararys and lists, get trg pass info from events
-    trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=bool) # Array of False the len of events
-    trg_overlaps  = np.zeros_like(np.array(events.MET.pt), dtype=bool) # Array of False the len of events
+    trg_passes    = dak.zeros_like(events.MET.pt, dtype=bool) # Array of False the len of events
+    trg_overlaps  = dak.zeros_like(events.MET.pt, dtype=bool) # Array of False the len of events
     trg_info_dict = events.HLT
     full_trg_lst  = []
 
@@ -67,7 +67,7 @@ def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict,er
 # Returns a mask for events with a same flavor opposite (same) sign pair close to the Z
 # Mask will be True if any combination of 2 leptons from within the given collection satisfies the requirement
 def get_Z_peak_mask(lep_collection,pt_window,flavor="os",zmass=91.2):
-    ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
+    ll_pairs = dak.combinations(lep_collection, 2, fields=["l0","l1"])
     zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - zmass)<pt_window)
     if flavor == "os":
         sf_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
@@ -77,7 +77,7 @@ def get_Z_peak_mask(lep_collection,pt_window,flavor="os",zmass=91.2):
         sf_mask = ((ll_pairs.l0.pdgId == ll_pairs.l1.pdgId) | (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId))
     else:
         raise Exception(f"Error: flavor requirement \"{flavor}\" is unknown.")
-    sfosz_mask = ak.flatten(ak.any((zpeak_mask & sf_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
+    sfosz_mask = dak.flatten(dak.any((zpeak_mask & sf_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
     return sfosz_mask
 
 # Returns a mask for all events with any os lepton pair within low region of off-Z

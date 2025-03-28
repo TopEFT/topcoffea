@@ -1,13 +1,12 @@
 # Event selection functions
 
-import numpy as np
 import awkward as ak
 
 # This is a helper function called by trg_pass_no_overlap
 #   - Takes events objects, and a lits of triggers
 #   - Returns an array the same length as events, elements are true if the event passed at least one of the triggers and false otherwise
 def passes_trg_inlst(events,trg_name_lst):
-    tpass = np.zeros_like(np.array(events.MET.pt), dtype=bool)
+    tpass = ak.zeros_like(events.MET.pt, dtype=bool)
     trg_info_dict = events.HLT
 
     # "fields" should be list of all triggers in the dataset
@@ -39,8 +38,8 @@ def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict,er
         year = "2023"
 
     # Initialize ararys and lists, get trg pass info from events
-    trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=bool) # Array of False the len of events
-    trg_overlaps  = np.zeros_like(np.array(events.MET.pt), dtype=bool) # Array of False the len of events
+    trg_passes    = ak.zeros_like(events.MET.pt, dtype=bool) # Array of False the len of events
+    trg_overlaps  = ak.zeros_like(events.MET.pt, dtype=bool) # Array of False the len of events
     trg_info_dict = events.HLT
     full_trg_lst  = []
 

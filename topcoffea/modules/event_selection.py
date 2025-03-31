@@ -38,6 +38,11 @@ def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict,er
     if year == "2023BPix":
         year = "2023"
 
+    is_run2 = False
+    if year.startswith("201"):
+        is_run2 = True
+    is_run3 = not is_run2
+        
     # Initialize ararys and lists, get trg pass info from events
     trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=bool) # Array of False the len of events
     trg_overlaps  = np.zeros_like(np.array(events.MET.pt), dtype=bool) # Array of False the len of events
@@ -53,13 +58,16 @@ def trg_pass_no_overlap(events,is_data,dataset,year,dataset_dict,exclude_dict,er
 
     # In case of data, check if events overlap with other datasets
     if is_data:
-        if era is not None: # Used for era dependency in Run3
+        if is_run3: # Used for era dependency in Run3
             trg_passes = passes_trg_inlst(events,dataset_dict[year][dataset])
             trg_overlaps = passes_trg_inlst(events, exclude_dict[era][dataset])
-        else:
+        elif is_run2: #Run2 structure 
             trg_passes = passes_trg_inlst(events,dataset_dict[year][dataset])
             trg_overlaps = passes_trg_inlst(events, exclude_dict[year][dataset])
-
+        elif era is not None: #Florida's strategy
+            trg_passes = passes_trg_inlst(events,dataset_dict[year][dataset])
+            trg_overlaps = passes_trg_inlst(events, exclude_dict[era][dataset])
+            
     # Return true if passes trg and does not overlap
     return (trg_passes & ~trg_overlaps)
 

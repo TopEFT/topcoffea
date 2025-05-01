@@ -25,6 +25,7 @@ def main():
 
     parser.add_argument('--outname','-o'    , default=''           , help = 'Out name of the json file')
     parser.add_argument('--options'         , default=''           , help = 'Sample-dependent options to pass to your analysis')
+    parser.add_argument('--just_write','-w' , action='store_true'  , help = 'Write json but don\'t loop over files')
     parser.add_argument('--verbose','-v'    , action='store_true'  , help = 'Activate the verbosing')
 
     parser.add_argument('--includeLheWgts'  , action='store_true' , help = 'Include the set of LHE weights')
@@ -46,6 +47,7 @@ def main():
     outname      = args.outname
     isDAS        = args.DAS
     nFiles       = int(args.nFiles) if not args.nFiles is None else None
+    just_write   = args.just_write
     verbose      = args.verbose
     skip_file_name = args.skipFileName
 
@@ -119,11 +121,12 @@ def main():
         n_events, n_gen_events, n_sum_of_weights = output, output, output
 
     # Access the file locally
-    else:
+    elif not just_write:
         n_events = 0
         n_gen_events = 0
         n_sum_of_weights = 0
         is_data_lst = []
+        is_data = False
         n_sum_of_lhe_weights = None
         for f in files_with_prefix:
             i_events, i_gen_events, i_sum_of_weights, i_sum_of_lhe_weights, is_data = get_info(f, treeName)
@@ -151,6 +154,39 @@ def main():
         if (is_data) and ("2022" in year) and (era is None):
             print("WARNING: You have not included an era for a 2022 dataset!")
 
+    else:
+        n_events = 0
+        n_gen_events = 0
+        n_sum_of_weights = 0
+        is_data_lst = []
+        is_data = False
+        n_sum_of_lhe_weights = None
+        #for f in files_with_prefix:
+        #    i_events, i_gen_events, i_sum_of_weights, i_sum_of_lhe_weights, is_data = get_info(f, treeName)
+        #    n_events += i_events
+        #    n_gen_events += i_gen_events
+        #    n_sum_of_weights += i_sum_of_weights
+        #    is_data_lst.append(is_data)
+        #    # Get the sum of the up and down LHE weights
+        #    if not is_data:
+        #        if n_sum_of_lhe_weights is None:
+        #            n_sum_of_lhe_weights = list(i_sum_of_lhe_weights)
+        #        else:
+        #            if len(n_sum_of_lhe_weights) != len(i_sum_of_lhe_weights):
+        #                continue
+        #                raise Exception("Different length of LHE weight array in different files.")
+        #            for i in range(len(n_sum_of_lhe_weights)):
+        #                n_sum_of_lhe_weights[i] += i_sum_of_lhe_weights[i]
+
+        # Raise error if there is a mix of data and mc files
+        #if len(set(is_data_lst)) != 1:
+        #    raise Exception("ERROR: There are a mix of files that are data and mc")
+        ## Otherwise all are same, so we can take is_data for the full list to be just whatever it is for the first element
+        #else:
+        #    is_data = is_data_lst[0]
+
+        if (is_data) and ("2022" in year) and (era is None):
+            print("WARNING: You have not included an era for a 2022 dataset!")
     ###### Fill the sampdic with the values we've found  ######
 
     # Any samples coming from DAS won't have EFT weights/WCs, saves having to actually access remote files

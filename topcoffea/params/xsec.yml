@@ -36,6 +36,7 @@ TTGJets                 : 3.697
 # For the dileptonic and semileptonic ttgamma xsecs, use the LO xsec from the gridpacks
 TTGamma_Dilept     : 1.513
 TTGamma_SingleLept : 5.121
+TTGamma            : 10.7
 
 # As done in TOP-21-004, the LO TTGamma xsec is scaled by an NLO k-factor of 1.4852
 TTGamma_DileptK     : 2.2471   # 1.513 * 1.4852

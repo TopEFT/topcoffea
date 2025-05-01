@@ -25,6 +25,8 @@ def main():
 
     parser.add_argument('--outname','-o'    , default=''           , help = 'Out name of the json file')
     parser.add_argument('--options'         , default=''           , help = 'Sample-dependent options to pass to your analysis')
+    parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
+    parser.add_argument('--post_mortem'     , default=None         , help = 'Post mortem WCs')
     parser.add_argument('--just_write','-w' , action='store_true'  , help = 'Write json but don\'t loop over files')
     parser.add_argument('--verbose','-v'    , action='store_true'  , help = 'Activate the verbosing')
 
@@ -48,6 +50,7 @@ def main():
     isDAS        = args.DAS
     nFiles       = int(args.nFiles) if not args.nFiles is None else None
     just_write   = args.just_write
+    post_mortem  = args.post_mortem
     verbose      = args.verbose
     skip_file_name = args.skipFileName
 
@@ -192,12 +195,14 @@ def main():
     # Any samples coming from DAS won't have EFT weights/WCs, saves having to actually access remote files
     if isDAS: sampdic['WCnames'] = []
     else: sampdic['WCnames'] = get_list_of_wc_names(files_with_prefix[0])
+    if post_mortem is not None: sampdic['PMWCnames'] = post_mortem.split(',')
     sampdic['files']         = files
     sampdic['nEvents']       = n_events
     sampdic['nGenEvents']    = n_gen_events
     sampdic['nSumOfWeights'] = n_sum_of_weights
     sampdic['isData']        = is_data
     sampdic['path']          = path
+    if post_mortem is not None: sampdic["post_mortem"] = True
     if args.includeLheWgts:
         sampdic['nSumOfLheWeights'] = n_sum_of_lhe_weights
 

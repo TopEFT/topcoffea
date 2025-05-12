@@ -37,6 +37,10 @@ TTGJets                 : 3.697
 TTGamma_Dilept     : 1.513
 TTGamma_SingleLept : 5.121
 
+# As done in TOP-21-004, the LO TTGamma xsec is scaled by an NLO k-factor of 1.4852
+TTGamma_DileptK     : 2.2471   # 1.513 * 1.4852
+TTGamma_SingleLeptK : 7.6057   # 5.121 * 1.4852
+
 # The most up to date ttW xsec is from JHEP 11 (2021) 29: (1-0.6741)*0.722
 TTWJetsToLNu            : 0.23529979999999998
 
@@ -101,8 +105,10 @@ ZZTo4LK                 : 1.3816
 # From AN-19-144 (AN for VVV observation)
 ggHToZZ4L : 0.011814
 
-ggToZHToHToWWTo2L2Nu    : 0.00275
-qqToZHToZTo2L           : 0.0018639
+#https://twiki.cern.ch/twiki/bin/view/LHCPhysics/HiggsXSBR#Production_cross_sections_an_AN1
+#Apply branching fractions to production cross sections found above
+ggToZHToHToWWTo2L2Nu    : 0.00282
+qqToZHToZTo2L           : 0.00177
 
 WWW                     : 0.2086
 WWZ                     : 0.1651
@@ -145,56 +151,57 @@ SSWW   : 0.02794
 #Numbers from TOP-22-012
 TWminus_DR_AtLeastOneLepton_13p6TeV    : 24.2
 TbarWplus_DR_AtLeastOneLepton_13p6TeV  : 24.2
-ST_top_t-channel_13p6TeV               : 145.0
-ST_antitop_t-channel_13p6TeV           : 87.2
-ST_top_s-channel_13p6TeV               : 3.7
+ST_top_t-channel_13p6TeV 	       : 145			#TOP-22-012
+ST_antitop_t-channel_13p6TeV 	       : 87.2			#TOP-22-012
+ST_top_s-channel_13p6TeV 	       : 3.7			#TOP-22-012
 
 #Numbers from SMP-24-001
 DYto2L-2Jets_MLL-50_13p6TeV        : 6345.99
 DYto2L-2Jets_MLL-10to50_13p6TeV    : 19982.5
 WtoLNu-2Jets_13p6TeV               : 64481.58
 WW_13p6TeV                         : 125.7
-TTto2L2Nu_13p6TeV                  : 98.0
+TTto2L2Nu_13p6TeV : 96.9					#AN2022-132
 TbarWplusto2L2Nu_13p6TeV           : 4.67
 TWminusto2L2Nu_13p6TeV             : 4.67
 TTHtoNon2B_13p6TeV                 : 0.24111
-TTLL_MLL-4to50_13p6TeV             : 0.03949
-TTLL_MLL-50_13p6TeV                : 0.08646
-WWW_13p6TeV                        : 0.23280
+TTLL_MLL-4to50_13p6TeV 		   : 0.03949			#SMP-24-001
+TTLL_MLL-50_13p6TeV 		   : 0.08646			#SMP-24-001
+WWW_13p6TeV 			   : 0.2328  			#SMP-24-005
 WZto3LNu_13p6TeV                   : 5.31
 VH_HtoNonbb_13p6TeV                : 1.0132
 
 #Numbers from SMP-24-005
-WZZ_13p6TeV                            : 0.06
-GluGluToContinto2Zto2E2Mu_13p6TeV      : 0.0061150
-GluGluToContinto2Zto2E2Tau_13p6TeV     : 0.0061150
-GluGluToContinto2Zto2Mu2Tau_13p6TeV    : 0.0061150
+WZZ_13p6TeV			       : 0.06			#SMP-24-005
+GluGluToContinto2Zto2E2Mu_13p6TeV      : 0.006115
+GluGluToContinto2Zto2E2Tau_13p6TeV     : 0.006115
+GluGluToContinto2Zto2Mu2Tau_13p6TeV    : 0.006115
 GluGlutoContinto2Zto4Mu_13p6TeV        : 0.003
 GluGlutoContinto2Zto4E_13p6TeV         : 0.003
 GluGlutoContinto2Zto4Tau_13p6TeV       : 0.003
 WWto2L2Nu_13p6TeV                      : 12.98
-WWZ_13p6TeV                            : 0.19
-tZq_13p6TeV                            : 0.08
+WWZ_13p6TeV 			       : 0.1851			#XSDB
+tZq_13p6TeV          : 0.08
 
 #XSDB
 TWZToLL_tlept_Wlept_13p6TeV            : 0.001669
 TTZToQQ_13p6TeV                        : 0.6603
 WWZ4l_13p6TeV                          : 0.002244
-ZZZ_13p6TeV                            : 0.01591
+ZZZ_13p6TeV			       : 0.01591		#XSDB
 SSWW_TT_13p6TeV                        : 0.01762
 SSWW_TL_13p6TeV                        : 0.01152
 SSWW_LL_13p6TeV                        : 0.002177
-ZHToHtoWWto2L2Nu_13p6TeV               : 0.0195
 
 #Numbers from HIG-24-013
 ZZto4L_13p6TeV            : 1.39
 ggHToZZ4L_13p6TeV         : 0.01434
 
-#GenXSecAnalyzer
-GluGluZHToHtoWWto2L2Nu_13p6TeV   : 0.0033
+#https://twiki.cern.ch/twiki/bin/view/LHCPhysics/LHCHWG136TeVxsec_extrap#ppZH_NNLO_QCD_NLO_EW
+#Apply branching fractions to cross sections in link above
+GluGluZHToHtoWWto2L2Nu_13p6TeV   : 0.00312
+ZHToHtoWWto2L2Nu_13p6TeV         : 0.0186
 
 # qq-ZZ sample scaled by the 1.1 K factor as per SMP-19-001
-ZZTo4LK_13p6TeV                 : 1.529 
+ZZTo4LK_13p6TeV                  : 1.529
 
 # gg->ZZ samples, scale by the 1.7 K factor as written in AN-19-004
 GluGluToContinto2Zto2E2MuK_13p6TeV      : 0.0103955
@@ -213,43 +220,31 @@ TWminustoLNu2Q_13p6TeV             : 19.36
 ttHnobb_13p6TeV : 0.24111				#SMP-24-001
 ttHnobb-1Jets_13p6TeV : 0.5742				#XSDB
 TTLNu_13p6TeV : 0.2505					#XSDB
-TTLL_MLL-4to50_13p6TeV : 0.03949			#SMP-24-001
-TTLL_MLL-50_13p6TeV : 0.08646				#SMP-24-001
 TZQB-Zto2L-4FS_MLL-30_13p6TeV : 0.08			#SMP-24-005
-TZQB-4FS_OnshellZ_13p6TeV : 0.0801			#XSDB
 TTTT_13p6TeV  : 0.009652				#XSDB
 TTG-1Jets_PTG-10to100_13p6TeV : 4.216			#XSDB
 TTG-1Jets_PTG-100to200_13p6TeV: 0.4114			#XSDB
 TTG-1Jets_PTG-200_13p6TeV : 0.1284			#XSDB
-TTto2L2Nu_13p6TeV : 98					#SMP-24-001
-TTto2L2Nu-2Jets_13p6TeV : 95.49				#XSDB
-TTto2L2Nu-3Jets_13p6TeV  : 58.3				#XSDB
-TTtoLNu2Q_13p6TeV : 762.1  				#XSDB
+#TTto2L2Nu-2Jets_13p6TeV : 95.49				#XSDB
+#TTto2L2Nu-3Jets_13p6TeV  : 58.3				#XSDB
+TTtoLNu2Q_13p6TeV : 403.2549				#AN2024_019
+TTto4Q_13p6TeV : 419.08					#SMP-24-001
 TWZ_Tto2Q_WtoLNu_Zto2L_13p6TeV : 0.003338		#XSDB
 TWZ_TtoLNu_Wto2Q_Zto2L_13p6TeV : 0.003338		#XSDB
 TWZ_TtoLNu_WtoLNu_Zto2L_13p6TeV : 0.001669		#XSDB
 WJetsToLNu_13p6TeV : 64481.58	  			#SMP-24-001
-WWTo2L2Nu_13p6TeV : 12.98				#SMP-24-005
 WZTo3LNu_13p6TeV : 5.31					#SMP-24-001
-ZZTo4L_13p6TeV : 1.39					#HIG-24-013
 ZZTo4L-1Jet_13p6TeV : 1.499				#XSDB
-WWW_13p6TeV : 0.2328  					#SMP-24-005
-WWZ_13p6TeV : 0.1851					#XSDB
-WZZ_13p6TeV : 0.06					#SMP-24-005
-ZZZ_13p6TeV : 0.01591					#XSDB
 ggToZZTo2e2mu_13p6TeV : 0.006115			#SMP-24-005
 ggToZZTo2e2tau_13p6TeV : 0.006115			#SMP-24-005
 ggToZZTo2mu2tau_13p6TeV: 0.006115			#SMP-24-005
 ggToZZTo4e_13p6TeV: 0.003				#SMP-24-005
 ggToZZTo4mu_13p6TeV: 0.003				#SMP-24-005
 ggToZZTo4tau_13p6TeV : 0.003				#SMP-24-005
-ggToZZTo2e2nu_13p6TeV  :  				#TO BE ADDED WHEN AVAILABLE
-ggToZZTo2mu2nu_13p6TeV : 0.003				#TO BE ADDED WHEN AVAILABLE
+#ggToZZTo2e2nu_13p6TeV  :  				#TO BE ADDED WHEN AVAILABLE
+#ggToZZTo2mu2nu_13p6TeV : 0.003				#TO BE ADDED WHEN AVAILABLE
 DYJetsToLL_MLL-10to50_13p6TeV : 19982.5			#SMP-24-005
 DYJetsToLL_MLL-50_13p6TeV : 7345.99			#SMP-24-005
-ST_top_s-channel_13p6TeV : 3.7				#TOP-22-012
-ST_top_t-channel_13p6TeV : 145				#TOP-22-012
-ST_antitop_t-channel_13p6TeV : 87.2			#TOP-22-012
 ST_tW_Leptonic_13p6TeV : 4.67  				#SMP-24-001
 ST_tW_Semileptonic_13p6TeV : 19.36			#SMP-24-001
 ST_tbarW_Leptonic_13p6TeV : 4.67			#SMP-24-001

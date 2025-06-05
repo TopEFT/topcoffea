@@ -60,18 +60,36 @@ def btag_sf_eval(jet_collection,wp,year,method,syst):
     # Get the right sf json for the given year
 
     clib_year = clib_year_map[year]
-    fname = topcoffea_path(f"data/POG/BTV/{clib_year}/btagging.json.gz")
+    btagjson = "btagging"
+    if year.startswith("2023"):
+        if "tnp" in method:
+            btagjson += "_methods_v0.json"
+        elif "light" in method:
+            btagjson += "_v0.json"
+    else:
+        btagjson += ".json.gz"
+
+    fname = topcoffea_path(f"data/POG/BTV/{clib_year}/{btagjson}")
 
     # Flatten the input (until correctionlib handles jagged data natively)
     abseta_flat = ak.flatten(abs(jet_collection.eta))
     pt_flat = ak.flatten(jet_collection.pt)
     flav_flat = ak.flatten(jet_collection.hadronFlavour)
-
+    if year.startswith("2023"):
+        flav_flat = ak.where(flav_flat == 4, 5, flav_flat)
+    
     # For now, cap all pt at 1000 https://cms-talk.web.cern.ch/t/question-about-evaluating-sfs-with-correctionlib/31763
     pt_flat = ak.where(pt_flat>1000.0,1000.0,pt_flat)
-
+    
     # Evaluate the SF
     ceval = correctionlib.CorrectionSet.from_file(fname)
+
+    try:
+        corr = ceval[method]
+        print(f"{method} exists.")
+    except KeyError:
+        print(f"{method} not found.")
+
     sf_flat = ceval[method].evaluate(syst,wp,flav_flat,abseta_flat,pt_flat)
     sf = ak.unflatten(sf_flat,ak.num(jet_collection.pt))
 

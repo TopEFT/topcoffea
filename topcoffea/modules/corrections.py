@@ -86,7 +86,6 @@ def btag_sf_eval(jet_collection,wp,year,method,syst):
 
     try:
         corr = ceval[method]
-        print(f"{method} exists.")
     except KeyError:
         print(f"{method} not found.")
 

@@ -66,6 +66,8 @@ def btag_sf_eval(jet_collection,wp,year,method,syst):
             btagjson += "_methods_v0.json"
         elif "light" in method:
             btagjson += "_v0.json"
+        else:
+            btagjson += ".json.gz"
     else:
         btagjson += ".json.gz"
 

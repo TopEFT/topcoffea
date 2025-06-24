@@ -108,6 +108,7 @@ def _create_env(env_name: str, spec: Dict, force: bool = False):
         except subprocess.CalledProcessError as e:
             logger.error(f"poncho package creation failed with code {e.returncode}")
             logger.error(f"{e.output.decode()}")
+            raise e
 
         return env_name
 

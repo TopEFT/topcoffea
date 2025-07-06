@@ -125,8 +125,10 @@ def main():
         n_sum_of_weights = 0
         is_data_lst = []
         n_sum_of_lhe_weights = None
-        for f in files_with_prefix:
+
+        for idf, f in enumerate(files_with_prefix):
             i_events, i_gen_events, i_sum_of_weights, i_sum_of_lhe_weights, is_data = get_info(f, treeName)
+
             n_events += i_events
             n_gen_events += i_gen_events
             n_sum_of_weights += i_sum_of_weights
@@ -136,10 +138,20 @@ def main():
                 if n_sum_of_lhe_weights is None:
                     n_sum_of_lhe_weights = list(i_sum_of_lhe_weights)
                 else:
+                    if i_sum_of_lhe_weights is None and i_events == 0:
+                        # If the file is empty, we can just skip it
+                        print(f"WARNING: File {f} is empty, skipping it.")
+                        files[idf] = None
+                        continue
                     if len(n_sum_of_lhe_weights) != len(i_sum_of_lhe_weights):
-                        raise Exception("Different length of LHE weight array in different files.")
+                        ############# Raise an error if the length of the LHE weight array is different in different files #############
+                        ############# This should not happen, but if it does, we raise an error to avoid confusion #############
+                        print(f"ERROR: File {f} has a different length of LHE weight array than the previous files.")
+                        print(f"Previous length: {len(n_sum_of_lhe_weights)}, current length: {len(i_sum_of_lhe_weights)}")
+                        raise Exception("Different length of LHE weight array in different files.") 
                     for i in range(len(n_sum_of_lhe_weights)):
                         n_sum_of_lhe_weights[i] += i_sum_of_lhe_weights[i]
+            #print("sum of lhe weights", list(n_sum_of_lhe_weights))     
 
         # Raise error if there is a mix of data and mc files
         if len(set(is_data_lst)) != 1:
@@ -148,11 +160,11 @@ def main():
         else:
             is_data = is_data_lst[0]
 
-        if (is_data) and ("2022" in year) and (era is None):
+        if (is_data) and ("2022" in year or "2023" in year) and (era is None):
             print("WARNING: You have not included an era for a 2022 dataset!")
 
     ###### Fill the sampdic with the values we've found  ######
-
+    files = [f for f in files if f is not None]  # Remove any skipped files
     # Any samples coming from DAS won't have EFT weights/WCs, saves having to actually access remote files
     if isDAS: sampdic['WCnames'] = []
     else: sampdic['WCnames'] = get_list_of_wc_names(files_with_prefix[0])

@@ -118,40 +118,59 @@ def get_files(top_dir,**kwargs):
     return found
 
 # Extracts event information from a root file
-def get_info(fname, tree_name = "Events"):
+def get_info(fname, tree_name="Events"):
     # The info we want to get
     raw_events = 0  # The raw number of entries as reported by TTree.num_entries
     gen_events = 0  # Number of gen events according to 'genEventCount' or set to raw_events if not found
     sow_events = 0  # Sum of weights
-    sow_lhe_wgts = 0 # Sum of LHE weights
+    sow_lhe_wgts = None # Sum of LHE weights
     is_data = False
+
     print(f"Opening with uproot: {fname}")
-    with uproot.open(fname) as f:
-        tree = f[tree_name]
-        is_data = not "genWeight" in tree
+    try:
+        # This both opens and ensures f.close() on exit
+        with uproot.open(fname) as f:
+            tree = f[tree_name]  # KeyInFileError if missing
+            is_data = "genWeight" not in tree
+            raw_events = int(tree.num_entries)
 
-        raw_events = int(tree.num_entries)
-        if is_data:
-            # Data doesn't have gen or weighted events!
-            gen_events = raw_events
-            sow_events = raw_events
-        else:
-            gen_events = raw_events
-            sow_events = sum(tree["genWeight"])
-            if "Runs" in f:
-                # Instead get event from the "Runs" tree
-                runs = f["Runs"]
-                gen_key = "genEventCount" if "genEventCount" in runs else "genEventCount_"
-                sow_key = "genEventSumw"  if "genEventSumw"  in runs else "genEventSumw_"
-                gen_events = sum(runs[gen_key].array())
-                sow_events = sum(runs[sow_key].array())
+            if is_data:
+                # Data doesn't have gen or weighted events!
+                gen_events = raw_events
+                sow_events = raw_events
+            else:
+                gen_events = raw_events
+                sow_events = sum(tree["genWeight"])
 
-                # Get the LHE weights array (note it's stored as a ratio, so multiply by sow before summing)
-                sow_arr = runs[sow_key].array()
-                LHEScaleSumw_arr = runs["LHEScaleSumw"].array()
-                sow_lhe_wgts = sum(sow_arr*LHEScaleSumw_arr)
+                if "Runs" in f:
+                    # Instead get event from the "Runs" tree
+                    runs = f["Runs"]
+                    gen_key = "genEventCount" if "genEventCount" in runs else "genEventCount_"
+                    sow_key = "genEventSumw"   if "genEventSumw"   in runs else "genEventSumw_"
+                    try:
+                        gen_events = sum(runs[gen_key].array())
+                        sow_events = sum(runs[sow_key].array())
+                        lhe          = runs["LHEScaleSumw"].array()
+                        sow_lhe_wgts = sum(runs[sow_key].array() * lhe)
+                    except KeyError as e:
+                        print(f"\tMissing branch in Runs tree: {e}, using default sums")
+    
+    except (OSError, uproot.KeyInFileError) as err:
+        # File‐not‐found, unreadable, or missing tree
+        print(f"\tCouldn’t process {fname!r}: {err}")
+    
+    finally:
+        # Ensure that we return the default values if the file was not readable
+        if raw_events == 0:
+            gen_events = 0
+            sow_events = 0
+            sow_lhe_wgts = None
+            is_data = False
+        
+        # Return the info we found
+        print(f"\tFound {raw_events} raw events, {gen_events} gen events, {sow_events} sum of weights, {sow_lhe_wgts} sum of LHE weights, is_data={is_data}")
+        return [raw_events, gen_events, sow_events, sow_lhe_wgts, is_data]
 
-    return [raw_events, gen_events, sow_events, sow_lhe_wgts, is_data]
 
 
 # Get the list of WC names from an EFT sample naod root file

@@ -5,6 +5,8 @@ import gzip
 import pickle
 import cloudpickle
 import uproot
+import time
+
 
 pjoin = os.path.join
 
@@ -118,6 +120,7 @@ def get_files(top_dir,**kwargs):
     return found
 
 # Extracts event information from a root file
+'''
 def get_info(fname, tree_name="Events"):
     # The info we want to get
     raw_events = 0  # The raw number of entries as reported by TTree.num_entries
@@ -170,7 +173,68 @@ def get_info(fname, tree_name="Events"):
         # Return the info we found
         print(f"\tFound {raw_events} raw events, {gen_events} gen events, {sow_events} sum of weights, {sow_lhe_wgts} sum of LHE weights, is_data={is_data}")
         return [raw_events, gen_events, sow_events, sow_lhe_wgts, is_data]
+'''
 
+def get_info(fname, tree_name="Events", max_retries=10, retry_delay=5):
+    raw_events = 0
+    gen_events = 0
+    sow_events = 0
+    sow_lhe_wgts = None
+    is_data = False
+
+    print(f"Opening with uproot: {fname}")
+    attempt = 0
+    while attempt < max_retries:
+        attempt += 1
+        try:
+            with uproot.open(fname) as f:
+                tree = f[tree_name]
+                is_data = "genWeight" not in tree
+                raw_events = int(tree.num_entries)
+
+                if is_data:
+                    gen_events = raw_events
+                    sow_events = raw_events
+                else:
+                    gen_events = raw_events
+                    sow_events = sum(tree["genWeight"])
+                    if "Runs" in f:
+                        runs = f["Runs"]
+                        gen_key = "genEventCount" if "genEventCount" in runs else "genEventCount_"
+                        sow_key = "genEventSumw"   if "genEventSumw"   in runs else "genEventSumw_"
+                        try:
+                            gen_events = sum(runs[gen_key].array())
+                            sow_events = sum(runs[sow_key].array())
+                            lhe = runs["LHEScaleSumw"].array()
+                            sow_lhe_wgts = sum(runs[sow_key].array() * lhe)
+                        except KeyError as e:
+                            print(f"\tMissing branch in Runs tree: {e}, using default sums")
+            # success!
+            break
+
+        except Exception as err:
+            msg = str(err).lower()
+            if "operation expired" in msg or "no servers are available to read the file" in msg or "unable to read" in msg or "couldn't process":
+                print(f"\tNetwork issue on attempt {attempt}/{max_retries} ({err}), retrying in {retry_delay}s …")
+                time.sleep(retry_delay)
+                continue
+            else:
+                print(f"\tCouldn’t process {fname!r}: {err}")
+                break
+    else:
+        # This block runs if we never 'break'—i.e. all retries exhausted
+        print(f"\tGiving up on file {fname!r} after {max_retries} retries due to repeated network errors.")
+
+    # Ensure defaults if nothing was read
+    if raw_events == 0:
+        gen_events = 0
+        sow_events = 0
+        sow_lhe_wgts = None
+        is_data = False
+
+    print(f"\tFound {raw_events} raw events, {gen_events} gen events, "
+          f"{sow_events} sum of weights, {sow_lhe_wgts} sum of LHE weights, is_data={is_data}")
+    return [raw_events, gen_events, sow_events, sow_lhe_wgts, is_data]
 
 
 # Get the list of WC names from an EFT sample naod root file

@@ -175,7 +175,7 @@ def get_info(fname, tree_name="Events"):
         return [raw_events, gen_events, sow_events, sow_lhe_wgts, is_data]
 '''
 
-def get_info(fname, tree_name="Events", max_retries=10, retry_delay=5):
+def get_info(fname, tree_name="Events", max_retries=10, retry_delay=30):
     raw_events = 0
     gen_events = 0
     sow_events = 0
@@ -187,6 +187,7 @@ def get_info(fname, tree_name="Events", max_retries=10, retry_delay=5):
     while attempt < max_retries:
         attempt += 1
         try:
+            # This both opens and ensures f.close() on exit
             with uproot.open(fname) as f:
                 tree = f[tree_name]
                 is_data = "genWeight" not in tree
@@ -210,6 +211,7 @@ def get_info(fname, tree_name="Events", max_retries=10, retry_delay=5):
                         except KeyError as e:
                             print(f"\tMissing branch in Runs tree: {e}, using default sums")
             # success!
+            print(f"\tRemote reading of {fname!r} succeeded on attempt {attempt}/{max_retries}.")
             break
 
         except Exception as err:

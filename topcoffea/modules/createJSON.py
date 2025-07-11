@@ -138,7 +138,7 @@ def main():
                 if n_sum_of_lhe_weights is None:
                     n_sum_of_lhe_weights = list(i_sum_of_lhe_weights)
                 else:
-                    if i_sum_of_lhe_weights is None and i_events == 0:
+                    if i_sum_of_lhe_weights is None: # and i_events == 0:
                         # If the file is empty, we can just skip it
                         print(f"WARNING: File {f} is empty, skipping it.")
                         files[idf] = None

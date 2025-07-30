@@ -703,7 +703,7 @@ class HistEFT(coffea.hist.Hist):
                 is_eft_bin = isinstance(self._sumw[sparse_key],np.ndarray)
 
             if is_eft_bin:
-                _sumw = efth.calc_eft_weights(self._sumw[sparse_key],self._wcs)
+                _sumw = efth.calc_eft_weights_HistEFT(self._sumw[sparse_key],self._wcs)
             else:
                 _sumw = self._sumw[sparse_key]
 

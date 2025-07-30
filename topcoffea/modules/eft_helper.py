@@ -7,7 +7,7 @@ from numba.typed import List
 import math
 
 @numba.njit
-def calc_eft_weights(self, q_coeffs, wc_values):
+def calc_eft_weights(q_coeffs, wc_values):
     """Calculate the weights for a specific set of WC values.
 
     Args:

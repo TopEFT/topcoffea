@@ -4,7 +4,7 @@ channels:
 dependencies:
   - conda-forge::python=3.9
   - numpy=1.23.5
-  - ndcctools>=7.15.4
+  - ndcctools>=7.15.10
   - conda-pack
   - dill
   - xrootd

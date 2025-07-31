@@ -50,14 +50,14 @@ jobs:
           pytest tests/test_update_json.py
         shell: micromamba-shell {0}
 
-      - name: Test HistEFT unit test
+      - name: Test histEFT unit test
         run: |
-          pytest tests/test_unit.py
+          pytest tests/test_histEFT_unit.py
         shell: micromamba-shell {0}
 
       - name: Test histEFT
         run: |
-          pytest tests/test_HistEFT_add.py
+          pytest tests/test_histEFT_add.py
         shell: micromamba-shell {0}
 
 
@@ -98,11 +98,11 @@ jobs:
         run: |
           conda run -n topcoffea-env pytest tests/test_update_json.py
 
-      - name: Test HistEFT unit test
+      - name: Test histEFT unit test
         run: |
           conda run -n topcoffea-env pytest tests/test_unit.py
 
       - name: Test histEFT
         run: |
-          conda run -n topcoffea-env pytest tests/test_HistEFT_add.py
+          conda run -n topcoffea-env pytest tests/test_histEFT_add.py
 

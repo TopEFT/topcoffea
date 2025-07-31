@@ -100,7 +100,7 @@ jobs:
 
       - name: Test histEFT unit test
         run: |
-          conda run -n topcoffea-env pytest tests/test_unit.py
+          conda run -n topcoffea-env pytest tests/test_histEFT_unit.py
 
       - name: Test histEFT
         run: |

@@ -37,6 +37,13 @@ def calc_eft_weights(q_coeffs, wc_values):
     return out
 
 @numba.njit
+def n_quad_terms(n_wc):
+    """Calculates the number of quadratic terms corresponding to a given
+    number of Wilson coefficients.
+    """
+    return int((n_wc+2)*(n_wc+1)/2)
+
+@numba.njit
 def n_wc_from_quad(n_quad):
     """Calculates the number of Wilson coefficients corresponding to a
     given number of quadratic terms

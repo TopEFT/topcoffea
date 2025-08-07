@@ -37,47 +37,6 @@ def calc_eft_weights(q_coeffs, wc_values):
     return out
 
 @numba.njit
-def calc_eft_weights_HistEFT(q_coeffs,wc_values):
-    """Calculate the weights for a specific set of WC values.
-
-    Args:
-        q_coeffs: Array specifying a set of quadric coefficients parameterizing the weights.
-                  The last dimension should specify the coefficients, while any earlier dimensions
-                  might be for different histogram bins, events, etc.
-        wc_values: A 1D array specifying the Wilson coefficients corrersponding to the desired weight.
-
-    Returns:
-        An array of the weight values calculated from the quadratic parameterization.
-
-    This is a legacy function for the old coffea.hist based HistEFT
-    """
-
-    # Prepend "1" to the start of the WC array to account for constant and linear terms
-    wcs = np.hstack((np.ones(1),wc_values))
-
-    # Initialize the array that will return the coefficients.  It
-    # should be the same shape as q_coeffs except missing the last
-    # dimension
-    out = np.zeros_like(q_coeffs[...,0])
-
-    # Now loop over the terms and multiply them out
-    index = 0
-    for i in range(len(wcs)):
-        for j in range(i+1):
-            out += q_coeffs[...,index]*wcs[i]*wcs[j]
-            index+=1
-
-    # Done, return the result
-    return out
-
-@numba.njit
-def n_quad_terms(n_wc):
-    """Calculates the number of quadratic terms corresponding to a given
-    number of Wilson coefficients.
-    """
-    return int((n_wc+2)*(n_wc+1)/2)
-
-@numba.njit
 def n_wc_from_quad(n_quad):
     """Calculates the number of Wilson coefficients corresponding to a
     given number of quadratic terms

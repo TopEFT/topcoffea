@@ -7,13 +7,13 @@ from numba.typed import List
 import math
 
 @numba.njit
-def calc_eft_weights(q_coeffs, wc_values):
+def calc_eft_weights(q_coeffs,wc_values):
     """Calculate the weights for a specific set of WC values.
 
     Args:
         q_coeffs: Array specifying a set of quadric coefficients parameterizing the weights.
-                The last dimension should specify the coefficients, while any earlier dimensions
-                might be for different histogram bins, events, etc.
+                  The last dimension should specify the coefficients, while any earlier dimensions
+                  might be for different histogram bins, events, etc.
         wc_values: A 1D array specifying the Wilson coefficients corrersponding to the desired weight.
 
     Returns:
@@ -21,19 +21,21 @@ def calc_eft_weights(q_coeffs, wc_values):
     """
 
     # Prepend "1" to the start of the WC array to account for constant and linear terms
-    wcs = np.hstack((np.ones(1), wc_values))
+    wcs = np.hstack((np.ones(1),wc_values))
 
     # Initialize the array that will return the coefficients.  It
     # should be the same shape as q_coeffs except missing the last
-    # dimension.
-    out = np.zeros_like(q_coeffs[..., 0])
+    # dimension
+    out = np.zeros_like(q_coeffs[...,0])
 
     # Now loop over the terms and multiply them out
     index = 1  # start at second column, as first is 0s from boost_histogram underflow (real underflow is row 0)
     for i in range(len(wcs)):
-        for j in range(i + 1):
-            out += q_coeffs[..., index] * wcs[i] * wcs[j]
-            index += 1
+        for j in range(i+1):
+            out += q_coeffs[...,index]*wcs[i]*wcs[j]
+            index+=1
+
+    # Done, return the result
     return out
 
 @numba.njit

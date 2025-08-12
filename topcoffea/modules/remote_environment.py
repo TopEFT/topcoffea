@@ -123,9 +123,13 @@ def _create_env(env_name: str, spec: Dict, force: bool = False):
         f.write(packages_json.encode())
         f.flush()
         logger.info("Creating environment {}".format(env_name))
-        subprocess.check_call(['poncho_package_create', f.name, env_name], stdin=subprocess.DEVNULL)
-        return env_name
 
+        try:
+            subprocess.check_output(['poncho_package_create', f.name, env_name], stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"poncho package creation failed with code {e.returncode}")
+            logger.error(f"{e.output.decode()}")
+            raise e
 
 def _find_local_pip():
     edit_raw = subprocess.check_output(

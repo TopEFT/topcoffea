@@ -12,7 +12,6 @@ from pathlib import Path
 
 from typing import Dict, List, Optional
 
-import coffea
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
@@ -23,33 +22,54 @@ py_version = "{}.{}.{}".format(
     sys.version_info[0], sys.version_info[1], sys.version_info[2]
 )  # 3.8 or 3.9, or etc.
 
-coffea_version = coffea.__version__
-
 default_modules = {
     "conda": {
         "channels": ["conda-forge"],
         "packages": [
             f"python={py_version}",
             "pip",
-            "conda",
+            "conda<2025.1.0",
             "conda-pack",
-            "dill",
+            "ndcctools>=7.14.7",
             "xrootd",
             "setuptools==70.3.0",
         ],
     },
-    "pip": [f"coffea=={coffea_version}", "topcoffea"],
+    "pip": ["topcoffea", "coffea==0.7.26"],
 }
 
 pip_local_to_watch = {"topcoffea": ["topcoffea", "setup.py"]}
 
 
+def _current_versions_conda(conda_env_path=None):
+    if not conda_env_path:
+        conda_env_path = os.environ['CONDA_PREFIX']
+
+    proc = subprocess.run(
+        ["conda", "list", "--export", "--json"],
+        check=True,
+        stdout=subprocess.PIPE,
+        stdin=subprocess.DEVNULL,
+    )
+    raw_pkgs = json.loads(proc.stdout.decode())
+
+    pkgs = {}
+    for pkg in raw_pkgs:
+        name = pkg['name']
+        version = f"{pkg['version']}={pkg['build_string']}"
+        pkgs[name] = f"{name}={version}"
+
+    return pkgs
+
+
 def _check_current_env(spec: Dict):
     with tempfile.NamedTemporaryFile() as f:
         # export current conda enviornment
-        subprocess.check_call(['conda', 'env', 'export', '--json'], stdout=f)
+        subprocess.check_call(['conda', 'env', 'export', '--json'], stdout=f, stdin=subprocess.DEVNULL)
         spec_file = open(f.name, "r")
         current_spec = json.load(spec_file)
+        current_spec['pinning'] = {'conda': _current_versions_conda()}
+
         if 'dependencies' in current_spec:
             # get current conda packages
             conda_deps = {
@@ -97,6 +117,7 @@ def _create_env(env_name: str, spec: Dict, force: bool = False):
     with tempfile.NamedTemporaryFile() as f:
         logger.info("Checking current conda environment")
         spec = _check_current_env(spec)
+
         packages_json = json.dumps(spec)
         logger.info("base env specification:{}".format(packages_json))
         f.write(packages_json.encode())
@@ -110,11 +131,10 @@ def _create_env(env_name: str, spec: Dict, force: bool = False):
             logger.error(f"{e.output.decode()}")
             raise e
 
-        return env_name
-
-
 def _find_local_pip():
-    edit_raw = subprocess.check_output([sys.executable, '-m' 'pip', 'list', '--editable']).decode()
+    edit_raw = subprocess.check_output(
+        [sys.executable, "-m" "pip", "list", "--editable"], stdin=subprocess.DEVNULL
+    ).decode()
 
     # drop first two lines, which are just a header
     edit_raw = edit_raw.split('\n')[2:]
@@ -140,17 +160,23 @@ def _commits_local_pip(paths):
                 to_watch = [":(top){}".format(d) for d in paths]
 
             try:
-                commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=path).decode().rstrip()
+                commit = (
+                    subprocess.check_output(
+                        ["git", "rev-parse", "HEAD"], cwd=path, stdin=subprocess.DEVNULL
+                    )
+                    .decode()
+                    .rstrip()
+                )
             except FileNotFoundError:
                 raise FileNotFoundError("Could not find the git executable in PATH")
 
             changed = True
             cmd = ['git', 'status', '--porcelain', '--untracked-files=no']
             try:
-                changed = subprocess.check_output(cmd + to_watch, cwd=path).decode().rstrip()
+                changed = subprocess.check_output(cmd + to_watch, cwd=path, stdin=subprocess.DEVNULL).decode().rstrip()
             except subprocess.CalledProcessError:
                 logger.warning("Could not apply git paths-to-watch filters. Trying without them...")
-                changed = subprocess.check_output(cmd, cwd=path).decode().rstrip()
+                changed = subprocess.check_output(cmd, cwd=path, stdin=subprocess.DEVNULL).decode().rstrip()
 
             if changed:
                 logger.warning(
@@ -190,7 +216,7 @@ def _clean_cache(cache_size, *current_files):
 def get_environment(
     extra_conda: Optional[List[str]] = None,
     extra_pip: Optional[List[str]] = None,
-    extra_pip_local: Optional[dict[str]] = None,
+    extra_pip_local: Optional[dict[str, str]] = None,
     force: bool = False,
     unstaged: str = "rebuild",
     cache_size: int = 3,
@@ -209,6 +235,7 @@ def get_environment(
         spec_pip_local_to_watch.update(extra_pip_local)
 
     packages_hash = hashlib.sha256(json.dumps(spec).encode()).hexdigest()[0:8]
+
     pip_paths = _find_local_pip()
     pip_commits = _commits_local_pip(pip_paths)
     pip_check = _compute_commit(pip_paths, pip_commits)

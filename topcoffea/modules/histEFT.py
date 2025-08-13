@@ -280,7 +280,7 @@ class HistEFT(SparseHist, family=_family):
 
         out = {}
         for sparse_key, hvs in self.view(flow=True, as_dict=True).items():
-            out[sparse_key] = efth.calc_eft_weights(hvs, values)
+            out[sparse_key] = efth.calc_eft_weights(hvs[...,1:-1], values)
         return out
 
     def as_hist(self, values):

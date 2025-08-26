@@ -47,7 +47,7 @@ def replace_xsec_for_dict_of_samples(samples_dict,out_dir):
         replace_val_in_json(path_to_json,"xsec",new_xsec)
 
 # Wrapper for createJSON.py
-def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,era=None,on_das=False,include_lhe_wgts_arr=False,skip_file_name=[]):
+def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,era=None,on_das=False,include_lhe_wgts_arr=False,skip_file_name=[],just_write=False,postfix='',post_mortem=None):
 
     # If the sample is on DAS, inclue the DAS flag in the createJSON.py arguments
     das_flag = ""
@@ -64,12 +64,14 @@ def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,e
         sample_dir,
         das_flag,
         include_lhe_wgts_arr_flag,
-        "--sampleName"   , sample_name,
+        "--sampleName"   , sample_name+postfix,
         "--prefix"       , prefix,
         "--xsec"         , path_to_xsecs,
         "--year"         , sample_yr,
         "--histAxisName" , hist_axis_name,
     ]
+    if just_write: args.append("--just_write")
+    if post_mortem is not None: args.extend(["--post_mortem", ','.join(post_mortem)])
 
     if era is not None:
         args.extend(['--era', era])

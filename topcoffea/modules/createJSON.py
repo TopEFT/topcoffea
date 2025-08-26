@@ -25,7 +25,6 @@ def main():
 
     parser.add_argument('--outname','-o'    , default=''           , help = 'Out name of the json file')
     parser.add_argument('--options'         , default=''           , help = 'Sample-dependent options to pass to your analysis')
-    parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
     parser.add_argument('--post_mortem'     , default=None         , help = 'Post mortem WCs')
     parser.add_argument('--just_write','-w' , action='store_true'  , help = 'Write json but don\'t loop over files')
     parser.add_argument('--verbose','-v'    , action='store_true'  , help = 'Activate the verbosing')

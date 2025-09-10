@@ -27,4 +27,4 @@ cp Cert_Collisions2022_355100_362760_Golden.json Cert_Collisions2022_355100_3627
 cp Cert_Collisions2023_366442_370790_Golden.json Cert_Collisions2023_366442_370790_Golden.txt
 ```
 
-
+For 2024, the preliminary golden json and lumi number are taken from here: `https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis#Year_2024`. These are the most up to date numbers we know of as of Sep 2025. 

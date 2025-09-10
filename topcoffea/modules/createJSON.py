@@ -65,7 +65,7 @@ def main():
         else:
             raise Exception(f"Error: There is no xsec for process \"{xsecName}\" included the xsec cfg file.")
     else:
-        raise Exception(f"Error: No xsec specified.")
+        raise Exception("Error: No xsec specified.")
 
     sampdic = {}
     sampdic['xsec']         = xsec

@@ -53,7 +53,7 @@ def main():
     just_write   = args.just_write
     post_mortem  = args.post_mortem
     verbose      = args.verbose
-    skipFileName = args.skipFileName
+    skip_file_name = args.skipFileName
 
     with open(topcoffea_path("params/xsec.yml")) as f:
         xsecdic = yaml.load(f,Loader=yaml.CLoader)
@@ -100,12 +100,6 @@ def main():
         dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector=prefix)
         files = [f[len(prefix):] for f in dicFiles['files']]
         files_with_prefix = dicFiles['files']
-        # Skip a root file if it's specified
-        for skip_file in skip_file_name:
-            if skip_file in files_with_prefix:
-                print(f"\nNote: Skipping file {skip_file}.\n")
-                files_with_prefix.remove(skip_file)
-                files.remove(skip_file[len(prefix):])
         # This DAS command for some reason returns the output doubled and will look something like this:
         #   output = " \ndata  \ndata  \n "
         # So we strip off the whitespace and spurious newlines and then only take the first of the duplicates
@@ -118,6 +112,13 @@ def main():
             is_data = False
         else:
             raise RuntimeError("Unknown datatype returned by DAS: ---{}---".format(output))
+
+    # Skip a root file if it's specified
+    for skip_file in skip_file_name:
+        if skip_file in files_with_prefix:
+            print(f"\nNote: Skipping file {skip_file}.\n")
+            files_with_prefix.remove(skip_file)
+            files.remove(skip_file[len(prefix):])
 
 
     ###### Get sum of weights etc ######
@@ -188,8 +189,6 @@ def main():
     sampdic['isData']        = is_data
     sampdic['path']          = path
     if post_mortem is not None: sampdic["post_mortem"] = True
-    if skipFileName is not None:
-        sampdic['files'] = [file for file in files if file not in skipFileName]
     if args.includeLheWgts:
         sampdic['nSumOfLheWeights'] = n_sum_of_lhe_weights
 

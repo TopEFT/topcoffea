@@ -188,6 +188,8 @@ def main():
     sampdic['isData']        = is_data
     sampdic['path']          = path
     if post_mortem is not None: sampdic["post_mortem"] = True
+    if skipFileName is not None:
+        sampdic['files'] = [file for file in files if file not in skipFileName]
     if args.includeLheWgts:
         sampdic['nSumOfLheWeights'] = n_sum_of_lhe_weights
 

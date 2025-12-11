@@ -113,12 +113,9 @@ def main():
         else:
             raise RuntimeError("Unknown datatype returned by DAS: ---{}---".format(output))
 
-    # Skip a root file if it's specified
-    for skip_file in skip_file_name:
-        if skip_file in files_with_prefix:
-            print(f"\nNote: Skipping file {skip_file}.\n")
-            files_with_prefix.remove(skip_file)
-            files.remove(skip_file[len(prefix):])
+    if any(sk in files_with_prefix for sk in skip_file_name):
+        print(f"\nNote: Skipping file {skip_file_name}.\n")
+    files_with_prefix = [file for file in files_with_prefix if not any(sk in files_with_prefix for sk in skip_file_name)]
 
 
     ###### Get sum of weights etc ######

@@ -53,7 +53,7 @@ def main():
     just_write   = args.just_write
     post_mortem  = args.post_mortem
     verbose      = args.verbose
-    skip_file_name = args.skipFileName
+    skipFileName = args.skipFileName
 
     with open(topcoffea_path("params/xsec.yml")) as f:
         xsecdic = yaml.load(f,Loader=yaml.CLoader)

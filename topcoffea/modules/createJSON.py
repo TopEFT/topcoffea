@@ -89,6 +89,14 @@ def main():
     # Get all rootfiles in a dir and all the sub dirs if not on das
     if not isDAS:
         files_with_prefix = get_files(prefix+path,match_files=["\.root"],recursive=True)
+        # Skip a root file if it's specified
+        for skip_file in skip_file_name:
+            to_skip = [fn for fn in files_with_prefix if skip_file in fn]
+            assert len(to_skip) < 2, print(f'Found multiple matches for {skip_file}: {to_skip}')
+            to_skip = to_skip[0]
+            if to_skip != '':
+                print(f"\nNote: Skipping file {skip_file} ({to_skip}).\n")
+                files_with_prefix.remove(to_skip)
         files = [(f[len(prefix):]) for f in files_with_prefix]
         if len(files_with_prefix) == 0:
             raise Exception(f"ERROR: No files found for this path \"{prefix+path}\".")
@@ -112,10 +120,6 @@ def main():
             is_data = False
         else:
             raise RuntimeError("Unknown datatype returned by DAS: ---{}---".format(output))
-
-    if any(sk in files_with_prefix for sk in skip_file_name):
-        print(f"\nNote: Skipping file {skip_file_name}.\n")
-    files_with_prefix = [file for file in files_with_prefix if not any(sk in files_with_prefix for sk in skip_file_name)]
 
 
     ###### Get sum of weights etc ######

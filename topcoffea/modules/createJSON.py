@@ -26,6 +26,8 @@ def main():
 
     parser.add_argument('--outname','-o'    , default=''           , help = 'Out name of the json file')
     parser.add_argument('--options'         , default=''           , help = 'Sample-dependent options to pass to your analysis')
+    parser.add_argument('--post_mortem'     , default=None         , help = 'Post mortem WCs')
+    parser.add_argument('--just_write','-w' , action='store_true'  , help = 'Write json but don\'t loop over files')
     parser.add_argument('--verbose','-v'    , action='store_true'  , help = 'Activate the verbosing')
 
     parser.add_argument('--includeLheWgts'  , action='store_true' , help = 'Include the set of LHE weights')
@@ -48,6 +50,8 @@ def main():
     outname      = args.outname
     isDAS        = args.DAS
     nFiles       = int(args.nFiles) if not args.nFiles is None else None
+    just_write   = args.just_write
+    post_mortem  = args.post_mortem
     verbose      = args.verbose
     skip_file_name = args.skipFileName
 
@@ -85,6 +89,14 @@ def main():
     # Get all rootfiles in a dir and all the sub dirs if not on das
     if not isDAS:
         files_with_prefix = get_files(prefix+path,match_files=["\.root"],recursive=True)
+        # Skip a root file if it's specified
+        for skip_file in skip_file_name:
+            to_skip = [fn for fn in files_with_prefix if skip_file in fn]
+            assert len(to_skip) < 2, print(f'Found multiple matches for {skip_file}: {to_skip}')
+            to_skip = to_skip[0] if len(to_skip) > 0 else to_skip
+            if to_skip != '':
+                print(f"\nNote: Skipping file {skip_file} ({to_skip}).\n")
+                files_with_prefix.remove(to_skip)
         files = [(f[len(prefix):]) for f in files_with_prefix]
         if len(files_with_prefix) == 0:
             raise Exception(f"ERROR: No files found for this path \"{prefix+path}\".")
@@ -96,12 +108,6 @@ def main():
         dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector=prefix)
         files = [f[len(prefix):] for f in dicFiles['files']]
         files_with_prefix = dicFiles['files']
-        # Skip a root file if it's specified
-        for skip_file in skip_file_name:
-            if skip_file in files_with_prefix:
-                print(f"\nNote: Skipping file {skip_file}.\n")
-                files_with_prefix.remove(skip_file)
-                files.remove(skip_file[len(prefix):])
         # This DAS command for some reason returns the output doubled and will look something like this:
         #   output = " \ndata  \ndata  \n "
         # So we strip off the whitespace and spurious newlines and then only take the first of the duplicates
@@ -128,11 +134,12 @@ def main():
         n_events, n_gen_events, n_sum_of_weights = output, output, output
 
     # Access the file locally
-    else:
+    elif not just_write:
         n_events = 0
         n_gen_events = 0
         n_sum_of_weights = 0
         is_data_lst = []
+        is_data = False
         n_sum_of_lhe_weights = None
         for f in files_with_prefix:
             i_events, i_gen_events, i_sum_of_weights, i_sum_of_lhe_weights, is_data = get_info(f, treeName)
@@ -160,17 +167,29 @@ def main():
         if (is_data) and ("2022" in year) and (era is None):
             print("WARNING: You have not included an era for a 2022 dataset!")
 
+    else:
+        n_events = 0
+        n_gen_events = 0
+        n_sum_of_weights = 0
+        is_data_lst = []
+        is_data = False
+        n_sum_of_lhe_weights = None
+
+        if (is_data) and ("2022" in year) and (era is None):
+            print("WARNING: You have not included an era for a 2022 dataset!")
     ###### Fill the sampdic with the values we've found  ######
 
     # Any samples coming from DAS won't have EFT weights/WCs, saves having to actually access remote files
     if isDAS: sampdic['WCnames'] = []
     else: sampdic['WCnames'] = get_list_of_wc_names(files_with_prefix[0])
+    if post_mortem is not None: sampdic['PMWCnames'] = post_mortem.split(',')
     sampdic['files']         = files
     sampdic['nEvents']       = n_events
     sampdic['nGenEvents']    = n_gen_events
     sampdic['nSumOfWeights'] = n_sum_of_weights
     sampdic['isData']        = is_data
     sampdic['path']          = path
+    if post_mortem is not None: sampdic["post_mortem"] = True
     if args.includeLheWgts:
         sampdic['nSumOfLheWeights'] = n_sum_of_lhe_weights
 

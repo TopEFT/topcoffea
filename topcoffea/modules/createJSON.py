@@ -93,7 +93,7 @@ def main():
         for skip_file in skip_file_name:
             to_skip = [fn for fn in files_with_prefix if skip_file in fn]
             assert len(to_skip) < 2, print(f'Found multiple matches for {skip_file}: {to_skip}')
-            to_skip = to_skip[0]
+            to_skip = to_skip[0] if len(to_skip) > 0 else to_skip
             if to_skip != '':
                 print(f"\nNote: Skipping file {skip_file} ({to_skip}).\n")
                 files_with_prefix.remove(to_skip)

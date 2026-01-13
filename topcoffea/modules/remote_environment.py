@@ -18,19 +18,15 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(mess
 
 env_dir_cache = Path.cwd().joinpath(Path('topeft-envs'))
 
-py_version = "{}.{}.{}".format(
-    sys.version_info[0], sys.version_info[1], sys.version_info[2]
-)  # 3.8 or 3.9, or etc.
-
 default_modules = {
     "conda": {
         "channels": ["conda-forge"],
         "packages": [
-            f"python={py_version}",
+            "python",   # python version comes from the pinning file which matches the current env version
             "pip",
-            "conda<2025.1.0",
+            "conda",
             "conda-pack",
-            "ndcctools>=7.14.7",
+            "ndcctools",
             "xrootd",
             "setuptools==70.3.0",
         ],
@@ -130,6 +126,9 @@ def _create_env(env_name: str, spec: Dict, force: bool = False):
             logger.error(f"poncho package creation failed with code {e.returncode}")
             logger.error(f"{e.output.decode()}")
             raise e
+        finally:
+            logger.info("Environment creation done")
+
 
 def _find_local_pip():
     edit_raw = subprocess.check_output(
@@ -259,4 +258,4 @@ class UnstagedChanges(Exception):
 
 
 if __name__ == '__main__':
-    print(get_environment())
+    get_environment()

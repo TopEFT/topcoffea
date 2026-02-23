@@ -14,7 +14,8 @@ def main():
     parser.add_argument('--prefix','-p'     , default=''           , help = 'Prefix to add to the path (e.g. redirector)')
     parser.add_argument('--sampleName','-s' , default=''           , help = 'Sample name, used to find files and/or output name')
     parser.add_argument('--xsec','-x'       , default=1            , help = 'Cross section (number or file to read)')
-    parser.add_argument('--xsecName'        ,                        help = 'Name in cross section .cfg (only if different from sampleName)')
+    parser.add_argument('--xsecName'        , default=None         , help = 'Name in cross section .cfg (only if different from sampleName)')
+    parser.add_argument('--xsecValue'       , default=None         , help = 'Xsec value specified directly (in this case do not read it from xsec file).')
     parser.add_argument('--year','-y'       , default=-1           , help = 'Year')
     parser.add_argument('--treename'        , default='Events'     , help = 'Name of the tree')
     parser.add_argument('--histAxisName'    , default=''           , help = 'Name for the samples axis of the coffea hist')
@@ -38,6 +39,7 @@ def main():
     sample       = args.sampleName
     xsec         = args.xsec
     xsecName     = args.xsecName
+    xsecValue    = args.xsecValue
     year         = args.year
     era          = args.era
     options      = args.options
@@ -53,10 +55,17 @@ def main():
         xsecdic = yaml.load(f,Loader=yaml.CLoader)
 
     # Get the xsec for the dataset
-    if xsecName in xsecdic.keys():
-        xsec = xsecdic[xsecName]
+    if (xsecName is not None) and (xsecValue is not None):
+        raise Exception("Error: Both xsec name and value specified. Do not know which to use, please specify just one.")
+    if (xsecValue is not None):
+        xsec = xsecValue
+    elif (xsecName is not None):
+        if xsecName in xsecdic.keys():
+            xsec = xsecdic[xsecName]
+        else:
+            raise Exception(f"Error: There is no xsec for process \"{xsecName}\" included the xsec cfg file.")
     else:
-        raise Exception(f"Error: There is no xsec for process \"{xsecName}\" included the xsec cfg file.")
+        raise Exception("Error: No xsec specified.")
 
     sampdic = {}
     sampdic['xsec']         = xsec

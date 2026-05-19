@@ -85,7 +85,16 @@ def jer_smear(
     jet_energy_resolution,
     jet_resolution_rand_gauss,
     jet_energy_resolution_scale_factor,
+    suppress_forward_eta_stochastic_jer=False,
 ):
+    """
+    Apply JER hybrid smearing.
+
+    The suppress_forward_eta_stochastic_jer option is an analysis-specific
+    JME/JERC mitigation hook for 2.5 < abs(eta) < 3.0. When enabled, jets in
+    that eta band keep deterministic hybrid smearing, but non-hybrid jets use
+    unity instead of stochastic smearing. It is disabled by default.
+    """
     pt_gen = pt_gen if not forceStochastic else None
     if not isinstance(jetPt, awkward.highlevel.Array):
         raise Exception("'jetPt' must be an awkward array of some kind!")
@@ -102,6 +111,10 @@ def jer_smear(
     min_jet_pt = _MIN_JET_ENERGY / numpy.cosh(etaJet)
     min_jet_pt_corr = min_jet_pt / jetPt
     smearfact = awkward.where(doHybrid, detSmear, stochSmear)
+    if suppress_forward_eta_stochastic_jer:
+        forward_eta = (numpy.abs(etaJet) > 2.5) & (numpy.abs(etaJet) < 3.0)
+        scaling_only_smear = awkward.where(doHybrid, detSmear, _ONE_F32)
+        smearfact = awkward.where(forward_eta, scaling_only_smear, smearfact)
     smearfact = awkward.where(
         (smearfact * jetPt) < min_jet_pt, min_jet_pt_corr, smearfact
     )
@@ -160,12 +173,19 @@ def get_corr_inputs(jets, corr_obj, name_map, run, cache=None, corrections=None)
 
 
 class CorrectedJetsFactory(object):
-    def __init__(self, name_map, jec_stack, run):
+    def __init__(
+        self,
+        name_map,
+        jec_stack,
+        run,
+        suppress_forward_eta_stochastic_jer=False,
+    ):
         if not isinstance(jec_stack, JECStack):
             raise TypeError("jec_stack must be an instance of JECStack")
 
         self.tool = "clib" if jec_stack.use_clib else "jecstack"
         self.forceStochastic = False
+        self.suppress_forward_eta_stochastic_jer = suppress_forward_eta_stochastic_jer
 
         # Handle name map for raw pt and mass
         if "ptRaw" not in name_map or name_map["ptRaw"] is None:
@@ -421,6 +441,7 @@ class CorrectedJetsFactory(object):
                     awkward.values_astype(out_dict["jet_energy_resolution"], numpy.float32),
                     awkward.values_astype(out_dict["jet_resolution_rand_gauss"], numpy.float32),
                     awkward.values_astype(out_dict["jet_energy_resolution_scale_factor"], numpy.float32),
+                    self.suppress_forward_eta_stochastic_jer,
                 ),
                 cache=lazy_cache,
             )
@@ -458,6 +479,7 @@ class CorrectedJetsFactory(object):
                     awkward.values_astype(out_dict["jet_energy_resolution"], numpy.float32),
                     awkward.values_astype(out_dict["jet_resolution_rand_gauss"], numpy.float32),
                     awkward.values_astype(out_dict["jet_energy_resolution_scale_factor"], numpy.float32),
+                    self.suppress_forward_eta_stochastic_jer,
                 ),
                 cache=lazy_cache,
             )
@@ -500,6 +522,7 @@ class CorrectedJetsFactory(object):
                     awkward.values_astype(out_dict["jet_energy_resolution"], numpy.float32),
                     awkward.values_astype(out_dict["jet_resolution_rand_gauss"], numpy.float32),
                     awkward.values_astype(out_dict["jet_energy_resolution_scale_factor"], numpy.float32),
+                    self.suppress_forward_eta_stochastic_jer,
                 ),
                 cache=lazy_cache,
             )

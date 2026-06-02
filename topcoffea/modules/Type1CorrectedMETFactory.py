@@ -17,7 +17,9 @@ _TYPE1_REQUIRED_KEYS = [
     "JetPhi",
     "JetEta",
     "JetA",
-    "JetRawFactor",
+    # Regular-Jet Type-1 raw inputs are caller-prepared by contract.
+    "ptRaw",
+    "massRaw",
     "JetMuonSubtrFactor",
     "JetChEmEF",
     "JetNeEmEF",
@@ -38,6 +40,12 @@ def _field_or_zeros(obj, field, like):
     if _has_field(obj, field):
         return obj[field]
     return awkward.zeros_like(like)
+
+
+def _require_field(obj, field, message):
+    if not _has_field(obj, field):
+        raise ValueError(message)
+    return obj[field]
 
 
 def _object_counts(obj):
@@ -220,13 +228,27 @@ class Type1CorrectedMETFactory(object):
         name_map["JetA"] = self.name_map["CorrT1JetArea"]
         return name_map
 
+    def _regular_jet_raw_field(self, raw_jets, map_key, field_label, description):
+        field = self.name_map.get(map_key)
+        return _require_field(
+            raw_jets,
+            field,
+            f"Type1CorrectedMETFactory requires regular Jet {field_label} "
+            f"as a caller-prepared {description}; no fallback reconstruction is provided.",
+        )
+
     def _jet_raw_pt(self, raw_jets):
-        return raw_jets[self.name_map["JetPt"]] * (1.0 - raw_jets[self.name_map["JetRawFactor"]])
+        return self._regular_jet_raw_field(raw_jets, "ptRaw", "pt_raw", "raw pT")
 
     def _jet_no_mu_raw_pt(self, raw_jets):
+        # Type-1 JEC inputs use caller-prepared raw pT. The no-muon vector leg
+        # is derived from that same field; there is intentionally no rawFactor fallback.
         return self._jet_raw_pt(raw_jets) * (
             1.0 - raw_jets[self.name_map["JetMuonSubtrFactor"]]
         )
+
+    def _jet_raw_mass(self, raw_jets):
+        return self._regular_jet_raw_field(raw_jets, "massRaw", "mass_raw", "raw mass")
 
     def _corr_t1_raw_pt(self, corr_t1_met_jets):
         return corr_t1_met_jets[self.name_map["CorrT1JetPt"]]
@@ -238,16 +260,7 @@ class Type1CorrectedMETFactory(object):
 
     def _prepare_jets_for_jec(self, raw_jets):
         prepared = awkward.with_field(raw_jets, self._jet_raw_pt(raw_jets), "pt_type1Raw")
-        mass_raw_field = self.name_map.get("massRaw", "mass_raw")
-        if _has_field(raw_jets, mass_raw_field):
-            mass_type1_raw = raw_jets[mass_raw_field]
-        elif _has_field(raw_jets, self.name_map.get("JetMass")):
-            mass_type1_raw = raw_jets[self.name_map["JetMass"]] * (
-                1.0 - raw_jets[self.name_map["JetRawFactor"]]
-            )
-        else:
-            mass_type1_raw = awkward.zeros_like(prepared["pt_type1Raw"])
-        return awkward.with_field(prepared, mass_type1_raw, "mass_type1Raw")
+        return awkward.with_field(prepared, self._jet_raw_mass(raw_jets), "mass_type1Raw")
 
     def _prepare_corr_t1_for_jec(self, corr_t1_met_jets):
         return awkward.with_field(
@@ -257,21 +270,9 @@ class Type1CorrectedMETFactory(object):
         )
 
     def _prepare_jets_for_corrected_factory(self, raw_jets):
-        prepared = raw_jets
-        pt_raw_field = self.name_map.get("ptRaw")
-        if pt_raw_field is not None and not _has_field(prepared, pt_raw_field):
-            prepared = awkward.with_field(prepared, self._jet_raw_pt(raw_jets), pt_raw_field)
-
-        mass_raw_field = self.name_map.get("massRaw")
-        jet_mass_field = self.name_map.get("JetMass")
-        if mass_raw_field is not None and not _has_field(prepared, mass_raw_field):
-            if _has_field(raw_jets, jet_mass_field):
-                mass_raw = raw_jets[jet_mass_field] * (1.0 - raw_jets[self.name_map["JetRawFactor"]])
-            else:
-                mass_raw = awkward.zeros_like(self._jet_raw_pt(raw_jets))
-            prepared = awkward.with_field(prepared, mass_raw, mass_raw_field)
-
-        return prepared
+        self._jet_raw_pt(raw_jets)
+        self._jet_raw_mass(raw_jets)
+        return raw_jets
 
     def _make_corrected_jets_factory(self):
         return self._corrected_jets_factory_cls(

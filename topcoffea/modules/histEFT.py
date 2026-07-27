@@ -75,6 +75,7 @@ class HistEFT(SparseHist, family=_family):
         self,
         *args,
         wc_names: Union[List[str], None] = None,
+        use_multicell: bool = True,
         **kwargs,
     ) -> None:
         """HistEFT initialization is similar to hist.Hist, with the following restrictions:
@@ -88,28 +89,40 @@ class HistEFT(SparseHist, family=_family):
             wc_names = []
 
         n = len(wc_names)
+
+        self._use_multicell = use_multicell
         self._wc_names = {n: i for i, n in enumerate(wc_names)}
         self._wc_count = n
         self._quad_count = efth.n_quad_terms(n)
 
-        self._init_args_eft = {"wc_names": wc_names}
+        # Preserve the backend selection when recreating histograms from axes.
+        self._init_args_eft = {"wc_names": wc_names, "use_multicell": use_multicell}
 
         self._needs_rebinning = kwargs.pop("rebin", False)
         if self._needs_rebinning:
             raise ValueError("Do not know how to rebin yet...")
+        
+        # Use vector-valued MultiCell storage for EFT coefficients.
+        if self._use_multicell:
+            kwargs["storage"] = hist.storage.MultiCell(self._quad_count)
+            self._coeff_axis = None
 
-        kwargs.setdefault("storage", "Double")
-        if kwargs["storage"] != "Double":
-            raise ValueError("only 'Double' storage is supported")
+            if args[-1].name == "quadratic_term":
+                args = args[:-1]
 
-        if args[-1].name == "quadratic_term":
-            self._coeff_axis = args[-1]
-            args = args[:-1]
         else:
-            # no axis for quadratic_term found, creating our own.
-            self._coeff_axis = hist.axis.Integer(
-                start=0, stop=self._quad_count, name="quadratic_term"
-            )
+            # Legacy storage keeps EFT coefficients on a quadratic_term axis.
+            kwargs.setdefault("storage", "Double")
+            if kwargs["storage"] != "Double":
+                raise ValueError("only 'Double' storage is supported")
+
+            if args[-1].name == "quadratic_term":
+                self._coeff_axis = args[-1]
+                args = args[:-1]
+            else:
+                self._coeff_axis = hist.axis.Integer(
+                    start=0, stop=self._quad_count, name="quadratic_term"
+                )
 
         self._dense_axis = args[-1]
         if not isinstance(
@@ -122,9 +135,13 @@ class HistEFT(SparseHist, family=_family):
             raise ValueError(
                 f"No axis may have one of the following names: {','.join(reserved_names)}"
             )
-
-        super().__init__(*args, self._coeff_axis, **kwargs)
-
+        
+        # MultiCell embeds coefficients in storage and needs no coefficient axis.
+        if self._use_multicell:
+            super().__init__(*args, **kwargs)
+        else:
+            super().__init__(*args, self._coeff_axis, **kwargs)
+        
     def empty_from_axes(self, categorical_axes=None, dense_axes=None, **kwargs):
         return super().empty_from_axes(
             categorical_axes, dense_axes, **self._init_args_eft, **kwargs
@@ -199,6 +216,7 @@ class HistEFT(SparseHist, family=_family):
         eft_coeff: ArrayLike = None,  # [num of events x (num of wc coeffs + 1)]
         **values,
     ) -> Self:
+        
         """
         Insert data into the histogram using names and indices, return
         a HistEFT object.
@@ -209,7 +227,7 @@ class HistEFT(SparseHist, family=_family):
         eft_coeff: [[c00, c01, c02, ...]   each row is the coefficient values for one event,
                     [c10, c11, c12, ...]
                     ...                 ]  cij is the value of jth coefficient for the ith event.
-                                           ei, wi, and ci* go together.
+                                        ei, wi, and ci* go together.
 
         If eft_coeff is not given, then it is assumed to be [[1, 0, 0, ...], [1, 0, 0, ...], ...]
         """
@@ -217,13 +235,40 @@ class HistEFT(SparseHist, family=_family):
         n_events = len(values[self.dense_axis.name])
 
         if eft_coeff is None:
-            # if eft_coeff not given, assume values only for sm
+            # if eft_coeff not given, assume values only for SM
             eft_coeff = np.broadcast_to(
                 np.concatenate((np.ones((1,)), np.zeros((self._quad_count - 1,)))),
                 (n_events, self._quad_count),
             )
 
         eft_coeff = np.asarray(eft_coeff)
+
+        # MultiCell fills once per event with the full EFT coefficient vector.
+        if self._use_multicell:
+            if eft_coeff.shape != (n_events, self._quad_count):
+                raise ValueError(
+                    f"eft_coeff must have shape ({n_events}, {self._quad_count}) "
+                    f"for MultiCell mode, got {eft_coeff.shape}"
+                )
+
+            weight = values.pop("weight", None)
+
+            if weight is not None:
+                weight = np.asarray(weight)
+
+                if weight.ndim > 1:
+                    weight = weight.ravel()
+
+                if weight.shape[0] != n_events:
+                    raise ValueError(
+                        f"weight must have length {n_events}, got {weight.shape[0]}"
+                    )
+
+                eft_coeff = eft_coeff * weight[:, None]
+
+            super().fill(**values, weight=eft_coeff)
+            return self
+        # Legacy storage expands each event over the quadratic_term axis.
 
         # turn into [e0, e0, ..., e1, e1, ..., e2, e2, ...]
         values[self._dense_axis.name] = self._fill_flatten(
@@ -247,10 +292,11 @@ class HistEFT(SparseHist, family=_family):
         # [ 0,      1,       2,    ..., 0,      1,      2,      ...]
         # [c00*w0, c01*w0, c02*w0, ..., c10*w1, c11*w1, c12*w1, ...]
         super().fill(quadratic_term=indices, **values, weight=eft_coeff)
+        return self
 
     def _wc_for_eval(self, values):
         """Set the WC values used to evaluate the bin contents of this histogram
-        where the WCs are specified as keyword arguments.  Any WCs not listed are set to zero.
+        where the WCs are specified as keyword arguments. Any WCs not listed are set to zero.
         """
         if values is None:
             return np.zeros(self._wc_count)
@@ -263,45 +309,79 @@ class HistEFT(SparseHist, family=_family):
                     index = self._wc_names[wc]
                     result[index] = val
                 except KeyError:
-                    msg = f'This HistEFT does not know about the "{wc}" Wilson coefficient. Known coefficients: {list(self._wc_names.keys())}'
+                    msg = (
+                        f'This HistEFT does not know about the "{wc}" Wilson coefficient. '
+                        f"Known coefficients: {list(self._wc_names.keys())}"
+                    )
                     raise LookupError(msg)
 
         return np.asarray(result)
 
+    # Normalize MultiCell and legacy coefficient views to a common layout.
+    def _coefficient_view(self, hvs):
+        """
+        Return EFT coefficients in a common layout:
+
+            (dense bins including flow, quadratic terms)
+
+        Standard HistEFT layout:
+            hvs[..., 1:-1]
+
+        MultiCell layout:
+            hvs has shape (quadratic terms, dense bins including flow),
+            so we transpose it.
+        """
+
+        if self._use_multicell:
+            return np.asarray(hvs).T
+
+        return hvs[..., 1:-1]
+
+
     def eval(self, values):
-        """Extract the sum of weights arrays from this histogram
+        """Extract the sum of weights arrays from this histogram.
+
         Parameters
         ----------
         values: ArrayLike or Mapping or None
-            The WC values used to evaluate the bin contents of this histogram. Either an array with the values, or a dictionary. If None, use an array of zeros.
+            The WC values used to evaluate the bin contents of this histogram.
+            Either an array with the values, or a dictionary. If None, use an array of zeros.
         """
 
         values = self._wc_for_eval(values)
 
         out = {}
         for sparse_key, hvs in self.view(flow=True, as_dict=True).items():
-            out[sparse_key] = efth.calc_eft_weights(hvs[...,1:-1], values)
+            coeffs = self._coefficient_view(hvs)
+            out[sparse_key] = efth.calc_eft_weights(coeffs, values)
+
         return out
+
 
     def as_hist(self, values):
         """Construct a regular histogram evaluated at values.
         (Like self.eval(...) but result is a histogram.)
+
         Parameters
         ----------
         values: ArrayLike or Mapping or None
-            The WC values used to evaluate the bin contents of this histogram. Either an array with the values, or a dictionary. If None, use an array of zeros.
-        overflow: bool
-            Whether to include under and overflow bins.
+            The WC values used to evaluate the bin contents of this histogram.
+            Either an array with the values, or a dictionary. If None, use an array of zeros.
         """
         evals = self.eval(values=values)
-        nhist = hist.Hist(
-            *[axis for axis in self.axes if axis != self._coeff_axis], **self._init_args
-        )
+
+        if self._use_multicell:
+            axes = list(self.axes)
+        else:
+            axes = [axis for axis in self.axes if axis != self._coeff_axis]
+
+        nhist = hist.Hist(*axes, **self._init_args)
 
         sparse_names = self.categorical_axes.name
         for sp_val, arrs in evals.items():
             sp_key = dict(zip(sparse_names, sp_val))
             nhist[sp_key] = arrs
+
         return nhist
 
     def __reduce__(self):

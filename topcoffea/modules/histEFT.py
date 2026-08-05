@@ -76,6 +76,7 @@ class HistEFT(SparseHist, family=_family):
         *args,
         wc_names: Union[List[str], None] = None,
         use_multicell: bool = True,
+        store_sumw2: bool = False,
         **kwargs,
     ) -> None:
         """HistEFT initialization is similar to hist.Hist, with the following restrictions:
@@ -94,9 +95,27 @@ class HistEFT(SparseHist, family=_family):
         self._wc_names = {n: i for i, n in enumerate(wc_names)}
         self._wc_count = n
         self._quad_count = efth.n_quad_terms(n)
+        self._store_sumw2 = bool(store_sumw2)
+
+        if self._store_sumw2 and not self._use_multicell:
+            raise ValueError("store_sumw2=True requires use_multicell=True")
+
+        self._yield_slice = slice(0, self._quad_count)
+        self._sumw2_index = (
+            self._quad_count
+            if self._store_sumw2
+            else None
+        )
+        self._cell_count = (
+            self._quad_count + 1 if self._store_sumw2 else self._quad_count
+        )
 
         # Preserve the backend selection when recreating histograms from axes.
-        self._init_args_eft = {"wc_names": wc_names, "use_multicell": use_multicell}
+        self._init_args_eft = {
+            "wc_names": list(wc_names),
+            "use_multicell": use_multicell,
+            "store_sumw2": self._store_sumw2,
+        }
 
         self._needs_rebinning = kwargs.pop("rebin", False)
         if self._needs_rebinning:
@@ -104,7 +123,7 @@ class HistEFT(SparseHist, family=_family):
         
         # Use vector-valued MultiCell storage for EFT coefficients.
         if self._use_multicell:
-            kwargs["storage"] = hist.storage.MultiCell(self._quad_count)
+            kwargs["storage"] = hist.storage.MultiCell(self._cell_count)
             self._coeff_axis = None
 
             if args[-1].name == "quadratic_term":
@@ -150,6 +169,10 @@ class HistEFT(SparseHist, family=_family):
     @property
     def wc_names(self):
         return list(self._wc_names)
+
+    @property
+    def store_sumw2(self) -> bool:
+        return self._store_sumw2
 
     def index_of_wc(self, wc: str):
         return self._wc_names[wc]
@@ -214,6 +237,7 @@ class HistEFT(SparseHist, family=_family):
     def fill(
         self,
         eft_coeff: ArrayLike = None,  # [num of events x (num of wc coeffs + 1)]
+        fill_sumw2: bool = True,
         **values,
     ) -> Self:
         
@@ -253,20 +277,47 @@ class HistEFT(SparseHist, family=_family):
 
             weight = values.pop("weight", None)
 
-            if weight is not None:
+            if weight is None:
+                weight = np.ones(n_events, dtype=np.float64)
+            else:
                 weight = np.asarray(weight)
 
-                if weight.ndim > 1:
-                    weight = weight.ravel()
-
-                if weight.shape[0] != n_events:
+                if weight.ndim == 0:
+                    weight = np.full(n_events, weight.item(), dtype=np.float64)
+                elif weight.ndim == 1:
+                    if weight.shape != (n_events,):
+                        raise ValueError(
+                            f"weight must have shape ({n_events},), got {weight.shape}"
+                        )
+                    weight = weight.astype(np.float64, copy=False)
+                elif weight.ndim == 2 and weight.shape == (n_events, 1):
+                    weight = weight[:, 0].astype(np.float64, copy=False)
+                else:
                     raise ValueError(
-                        f"weight must have length {n_events}, got {weight.shape[0]}"
+                        "weight must be a scalar or have shape "
+                        f"({n_events},) or ({n_events}, 1), got {weight.shape}"
                     )
 
-                eft_coeff = eft_coeff * weight[:, None]
+            yield_payload = eft_coeff * weight[:, None]
 
-            super().fill(**values, weight=eft_coeff)
+            if self._store_sumw2:
+                if fill_sumw2:
+                    nominal_event_weight = weight * eft_coeff[:, 0]
+                    nominal_sumw2_payload = np.square(nominal_event_weight)
+                else:
+                    nominal_sumw2_payload = np.zeros(
+                        n_events,
+                        dtype=yield_payload.dtype,
+                    )
+
+                payload = np.concatenate(
+                    (yield_payload, nominal_sumw2_payload[:, None]),
+                    axis=1,
+                )
+            else:
+                payload = yield_payload
+
+            super().fill(**values, weight=payload)
             return self
         # Legacy storage expands each event over the quadratic_term axis.
 
@@ -318,25 +369,196 @@ class HistEFT(SparseHist, family=_family):
         return np.asarray(result)
 
     # Normalize MultiCell and legacy coefficient views to a common layout.
-    def _coefficient_view(self, hvs):
+    def _coefficient_view(self, hvs, *, flow: bool):
         """
-        Return EFT coefficients in a common layout:
+        Return yield EFT coefficients in a common layout:
 
-            (dense bins including flow, quadratic terms)
+            (... dense bins ..., quadratic terms)
 
-        Standard HistEFT layout:
-            hvs[..., 1:-1]
+        Legacy HistEFT:
+            - flow=True includes flow bins on the quadratic_term axis,
+            so they must be removed with [..., 1:-1].
+            - flow=False already excludes those flow bins.
 
-        MultiCell layout:
-            hvs has shape (quadratic terms, dense bins including flow),
-            so we transpose it.
+        MultiCell:
+            coefficients are stored in the cell dimension, not in a
+            quadratic_term axis.
         """
+
+        raw = np.asarray(hvs)
 
         if self._use_multicell:
-            return np.asarray(hvs).T
+            selected = raw[self._yield_slice, ...]
+            return np.moveaxis(selected, 0, -1)
 
-        return hvs[..., 1:-1]
+        if flow:
+            return raw[..., 1:-1]
 
+        return raw
+
+
+    def yield_coefficients(self, *, flow: bool = False):
+        """Return yield coefficients with the quadratic-term dimension last."""
+
+        return {
+            sparse_key: self._coefficient_view(hvs, flow=flow)
+            for sparse_key, hvs in self.view(
+                flow=flow,
+                as_dict=True,
+            ).items()
+        }
+
+    def nominal_sumw2(self, *, flow: bool = False):
+        """Return the exact statistical sumw2 at the nominal EFT point."""
+
+        if not self._store_sumw2:
+            raise RuntimeError(
+                "This HistEFT does not contain embedded nominal sumw2 data."
+            )
+
+        return {
+            sparse_key: np.asarray(hvs)[self._sumw2_index, ...]
+            for sparse_key, hvs in self.view(flow=flow, as_dict=True).items()
+        }
+
+    _EMBEDDED_SUBTRACTION_ERROR = (
+        "Subtraction is not defined for HistEFT objects with embedded nominal "
+        "sumw2. While yields subtract, variances of statistically independent "
+        "quantities add: Var(A - B) = Var(A) + Var(B). For correlated inputs, "
+        "a covariance term is also required, but HistEFT does not store "
+        "covariances. Use an explicit analysis-specific subtraction procedure "
+        "with a documented statistical policy."
+    )
+
+    @staticmethod
+    def _is_real_numeric_scalar(value):
+        """Return whether value is a scalar supported by variance scaling."""
+
+        if not np.isscalar(value):
+            return False
+        value_array = np.asarray(value)
+        return np.issubdtype(value_array.dtype, np.number) and np.isrealobj(
+            value_array
+        )
+
+    def _validate_embedded_scalar(self, other, operation):
+        if not self._is_real_numeric_scalar(other):
+            raise TypeError(
+                f"Embedded nominal sumw2 requires a real numeric scalar for "
+                f"{operation}; got {type(other).__name__}."
+            )
+
+    def _validate_histogram_addition(self, other):
+        """Validate EFT and histogram layout compatibility before mutation."""
+
+        if not isinstance(other, HistEFT):
+            raise TypeError(
+                "HistEFT addition requires another HistEFT object; "
+                f"got {type(other).__name__}."
+            )
+
+        if tuple(self.categorical_axes.name) != tuple(other.categorical_axes.name):
+            raise ValueError(
+                "HistEFT addition requires identical categorical-axis names "
+                "in the same order."
+            )
+
+        if self._use_multicell != other._use_multicell:
+            raise ValueError(
+                "HistEFT addition requires matching storage backends; cannot "
+                "combine MultiCell and legacy histograms."
+            )
+
+        if len(self.dense_axes) != len(other.dense_axes) or any(
+            type(left) is not type(right) or left != right
+            for left, right in zip(self.dense_axes, other.dense_axes)
+        ):
+            raise ValueError(
+                "HistEFT addition requires compatible dense axes with "
+                "identical names, ordering, and binning."
+            )
+
+        if self.wc_names != other.wc_names:
+            raise ValueError(
+                "HistEFT addition requires identical WC names in the same "
+                f"order; got {self.wc_names} and {other.wc_names}."
+            )
+
+        if self._wc_count != other._wc_count:
+            raise ValueError("HistEFT addition requires matching WC counts.")
+        if self._quad_count != other._quad_count:
+            raise ValueError(
+                "HistEFT addition requires matching quadratic coefficient counts."
+            )
+        if self._store_sumw2 != other._store_sumw2:
+            raise ValueError(
+                "HistEFT addition requires both histograms to have the same "
+                "embedded nominal-sumw2 layout."
+            )
+        if self._cell_count != other._cell_count:
+            raise ValueError("HistEFT addition requires matching cell layouts.")
+
+        self_storage = self._init_args.get("storage")
+        other_storage = other._init_args.get("storage")
+        if type(self_storage) is not type(other_storage):
+            raise ValueError(
+                "HistEFT addition requires compatible storage types; got "
+                f"{type(self_storage).__name__} and "
+                f"{type(other_storage).__name__}."
+            )
+
+    @staticmethod
+    def _has_embedded_sumw2(value):
+        return isinstance(value, HistEFT) and value.store_sumw2
+
+    def _ibinary_op(self, other, op: str):
+        """Apply arithmetic while preserving embedded variance semantics."""
+
+        if op == "__iadd__":
+            self._validate_histogram_addition(other)
+            return super()._ibinary_op(other, op)
+
+        if op == "__isub__" and (
+            self._store_sumw2 or self._has_embedded_sumw2(other)
+        ):
+            raise NotImplementedError(self._EMBEDDED_SUBTRACTION_ERROR)
+
+        if self._store_sumw2 and op in ("__imul__", "__itruediv__"):
+            operation = "multiplication" if op == "__imul__" else "division"
+            self._validate_embedded_scalar(other, operation)
+            if op == "__itruediv__" and other == 0:
+                raise ZeroDivisionError(
+                    "Cannot divide a HistEFT with embedded nominal sumw2 by zero."
+                )
+
+            super()._ibinary_op(other, op)
+
+            # SparseHist has already applied one power of the factor to every
+            # cell. Apply the second power only to the nominal-sumw2 cell.
+            for dense_hist in self._dense_hists.values():
+                raw = np.asarray(dense_hist.view(flow=True))
+                if op == "__imul__":
+                    raw[self._sumw2_index, ...] *= other
+                else:
+                    raw[self._sumw2_index, ...] /= other
+            return self
+
+        return super()._ibinary_op(other, op)
+
+    def __isub__(self, other):
+        if self._store_sumw2 or self._has_embedded_sumw2(other):
+            raise NotImplementedError(self._EMBEDDED_SUBTRACTION_ERROR)
+        return self._ibinary_op(other, "__isub__")
+
+    def __sub__(self, other):
+        if self._store_sumw2 or self._has_embedded_sumw2(other):
+            raise NotImplementedError(self._EMBEDDED_SUBTRACTION_ERROR)
+        return self._binary_op(other, "__sub__")
+
+    def __rsub__(self, other):
+        if self._store_sumw2 or self._has_embedded_sumw2(other):
+            raise NotImplementedError(self._EMBEDDED_SUBTRACTION_ERROR)
+        return super().__rsub__(other)
 
     def eval(self, values):
         """Extract the sum of weights arrays from this histogram.
@@ -351,12 +573,10 @@ class HistEFT(SparseHist, family=_family):
         values = self._wc_for_eval(values)
 
         out = {}
-        for sparse_key, hvs in self.view(flow=True, as_dict=True).items():
-            coeffs = self._coefficient_view(hvs)
+        for sparse_key, coeffs in self.yield_coefficients(flow=True).items():
             out[sparse_key] = efth.calc_eft_weights(coeffs, values)
 
         return out
-
 
     def as_hist(self, values):
         """Construct a regular histogram evaluated at values.
@@ -406,10 +626,17 @@ class HistEFT(SparseHist, family=_family):
             if None: will use self.wc_names for WCs
             if list or array: will use wc_list for WCs
         """
+        coefficients = self.yield_coefficients(flow=True)
+        if len(coefficients) != 1:
+            raise ValueError(
+                "make_scaling requires exactly one populated sparse category; "
+                f"found {len(coefficients)}."
+            )
+
+        scaling = np.array(next(iter(coefficients.values())), copy=True)
         if wc_list is not None:
-            scaling = efth.remap_coeffs(self.wc_names,wc_list,np.array(self.values(flow=True)[:,1:-1]))
+            scaling = efth.remap_coeffs(self.wc_names, wc_list, scaling)
         else:
-            scaling = self.values(flow=True)[:,1:-1]
             wc_list = self.wc_names
         #check if any non-flow bins have zero sm contribution
         if ((scaling[:,0] == 0) & (scaling != 0).any(axis=1)).any():

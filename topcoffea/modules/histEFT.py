@@ -595,7 +595,11 @@ class HistEFT(SparseHist, family=_family):
         else:
             axes = [axis for axis in self.axes if axis != self._coeff_axis]
 
-        nhist = hist.Hist(*axes, **self._init_args)
+        # EFT evaluation reduces each coefficient vector to one scalar yield
+        # per bin, regardless of the HistEFT storage backend.
+        hist_args = dict(self._init_args)
+        hist_args["storage"] = hist.storage.Double()
+        nhist = hist.Hist(*axes, **hist_args)
 
         sparse_names = self.categorical_axes.name
         for sp_val, arrs in evals.items():

@@ -236,10 +236,10 @@ class HistEFT(SparseHist, family=_family):
 
     def fill(
         self,
-        eft_coeff: ArrayLike = None,  # [num of events x (num of wc coeffs + 1)]
+        eft_coeff: ArrayLike = None,  # [num of events x (num of wc coeffs + 1)] # type: ignore
         fill_sumw2: bool = True,
         **values,
-    ) -> Self:
+    ) -> Self: # type: ignore
         
         """
         Insert data into the histogram using names and indices, return
@@ -300,9 +300,9 @@ class HistEFT(SparseHist, family=_family):
 
             yield_payload = eft_coeff * weight[:, None]
 
-            if self._store_sumw2:
+            if self._store_sumw2: 
                 if fill_sumw2:
-                    nominal_event_weight = weight * eft_coeff[:, 0]
+                    nominal_event_weight = weight * eft_coeff[:, 0] # (weight *a_0)^2
                     nominal_sumw2_payload = np.square(nominal_event_weight)
                 else:
                     nominal_sumw2_payload = np.zeros(

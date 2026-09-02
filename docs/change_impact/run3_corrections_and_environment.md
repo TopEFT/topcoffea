@@ -1,5 +1,10 @@
 # Run 3 correction and environment contract changes
 
+> Historical change-impact record. This page describes a bounded implementation
+> state and is not the current operating procedure. Use the maintained
+> [environment archive contract](../environment_archive_contract.md) for
+> archive lifecycle and validation behavior.
+
 ## Summary
 
 This branch is an intentionally broad shared-library integration update.

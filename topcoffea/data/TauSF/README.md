@@ -1,6 +1,19 @@
 
 # JSONs containing corrections and systematics
 
+## Current packaged interface
+
+This directory contains custom analysis jet-to-tau fake payloads. Current
+`topeft` registration uses Run 2 Loose and Medium payload roles and a combined
+Run 3 jet-fake payload role. They are separate from the packaged POG `VSjet`,
+`VSe`, `VSmu`, and tau-energy payload families under `data/POG/TAU`.
+
+The consuming analysis owns era, working-point, and variation selection. The
+generic legacy names and Tight fallback names below are not current active
+selection authorities; retain them only as payload provenance, not as an
+instruction to activate a correction. This README makes no nuisance-correlation
+or scientific closure claim.
+
 The Tau SFs are obtained from: https://github.com/cms-tau-pog/TauIDSFs
 
 In their default format, they are in a root file which requires CMSSW to extract. They were dumped into json files, uploaded here, which is a format more easily handled in coffea. The json file contains the same granularity as the original format, and no information is lost. The SFs have been confirmed to be the same.

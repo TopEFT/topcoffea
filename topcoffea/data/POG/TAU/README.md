@@ -6,6 +6,13 @@ More detailed recommendations can be found on this TWiki page: https://twiki.cer
 
 ## Summary of available SFs
 
+> Package reference note: the tables below are a rough inherited summary, not
+> the selection authority for a consuming analysis. In particular, the
+> packaged Run 3 payload and current `topeft` consumer evaluate
+> `DeepTau2018v2p5VSe`; an unavailable entry in an inherited table must not be
+> read as a current consumer capability decision. Analysis users should follow
+> the `topeft`-owned era, working-point, and variation contract.
+
 This is a rough summary of the available SFs for `DeepTau2017v2p1`:
 
 | Tau component  | `genmatch`  | `DeepTau2017v2p1` `VSjet`  | `DeepTau2017v2p1` `VSe`  | `DeepTau2017v2p1` `VSmu`  | energy scale   |
@@ -50,6 +57,13 @@ The SFs are meant for the following campaigns:
 (*) The SFs provided for pre-UL samples follow the old conventions for the binning by either pT or DM, and follow the old uncertainty scheme where only total uncertainties are reported
 
 ## Usage
+
+> Historical/upstream usage reference. The installation, clone, gunzip, and
+> example instructions below are retained for payload provenance and are not
+> the current correction-lib operating procedure. Current consumers use
+> packaged lookup through `topcoffea_path` and the maintained
+> [environment archive contract](../../../../docs/environment_archive_contract.md).
+> The referenced `examples/tauExample.py` is not a current packaged example.
 
 Please install the [`correctionlib`](https://github.com/cms-nanoAOD/correctionlib) tool to read these SFs.
 There are several ways to install as documented

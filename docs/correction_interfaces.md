@@ -121,6 +121,19 @@ files rather than copying numeric tables into analysis prose.
 Payload provenance may name a POG or calibration source. That identifies the
 external authority without re-establishing its derivation in this repository.
 
+## TAU packaged-payload boundary
+
+The package provides two distinct TAU payload surfaces:
+
+- `topcoffea/data/POG/TAU` contains packaged POG tau correction and energy
+  payloads;
+- `topcoffea/data/TauSF` contains the custom analysis jet-to-tau fake payloads.
+
+The consuming `topeft` analysis owns era, working-point, variation, and
+payload-family selection, along with the analysis meaning of the resulting
+weights or shifts. This package documents payload location and provenance; it
+does not duplicate an analysis nuisance map or define downstream correlations.
+
 The maintained concrete authorities are
 [`params.json`](../topcoffea/params/params.json) and the packaged
 [`data/`](../topcoffea/data) tree. Mechanisms without one universal payload

@@ -53,6 +53,8 @@ TTZToLLNuNu_M_10_a      : 0.2529
 
 # Using same as what was used in ttH (AN19111)
 TTZToLLNuNu_M_10        : 0.281
+TTZToLLNuNu_M_10_13p6TeV : 0.366888675
+ttll_mll4to10           : 0.025442626
 # Also there is a piece of the ttZ xsec for mll<10
 TTZToLL_M1to10         : 0.082
 
@@ -222,7 +224,7 @@ ttHnobb_13p6TeV : 0.24111				#SMP-24-001
 ttHnobb-1Jets_13p6TeV : 0.5742				#XSDB
 TTLNu_13p6TeV : 0.2505					#XSDB
 TZQB-Zto2L-4FS_MLL-30_13p6TeV : 0.08			#SMP-24-005
-TTTT_13p6TeV  : 0.009652				#XSDB
+TTTT_13p6TeV  : 0.01582				#TOP-25-006
 TTG-1Jets_PTG-10to100_13p6TeV : 4.216			#XSDB
 TTG-1Jets_PTG-100to200_13p6TeV: 0.4114			#XSDB
 TTG-1Jets_PTG-200_13p6TeV : 0.1284			#XSDB

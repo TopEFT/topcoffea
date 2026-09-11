@@ -12,6 +12,62 @@ from collections import namedtuple
 from typing import Mapping, Union, Sequence
 
 
+def _restore_sparsehist_from_reduce(
+    cls,
+    cat_axes,
+    dense_axes,
+    init_args,
+    dense_hists,
+    *,
+    track_raw_counts,
+    raw_counts=None,
+):
+    """Canonical reconstruction owner for SparseHist and its subclasses."""
+
+    hnew = cls(
+        *cat_axes,
+        *dense_axes,
+        track_raw_counts=track_raw_counts,
+        **init_args,
+    )
+    for key, dense_histogram in dense_hists.items():
+        new_key = hnew._fill_bookkeep(*hnew.index_to_categories(key))
+        hnew._dense_hists[new_key] = dense_histogram
+        if track_raw_counts:
+            if raw_counts is None or key not in raw_counts:
+                raise RuntimeError("Serialized raw-count state is incomplete.")
+            state = raw_counts[key]
+            hnew._raw_counts[new_key] = (
+                None
+                if state is None
+                else np.array(state, dtype=np.uint64, copy=True)
+            )
+    if track_raw_counts:
+        hnew._validated_raw_count_states()
+    return hnew
+
+
+def _read_tracked_sparsehist_from_reduce(
+    cls,
+    cat_axes,
+    dense_axes,
+    init_args,
+    dense_hists,
+    raw_counts,
+):
+    """Reconstruct extended raw-count state outside the patchable legacy hook."""
+
+    return _restore_sparsehist_from_reduce(
+        cls,
+        cat_axes,
+        dense_axes,
+        init_args,
+        dense_hists,
+        track_raw_counts=True,
+        raw_counts=raw_counts,
+    )
+
+
 class SparseHist(hist.Hist, family=hist):
     """Histogram specialized for sparse categorical data."""
 
@@ -20,6 +76,10 @@ class SparseHist(hist.Hist, family=hist):
         axes: List of categorical and regular/variable axes. Categorical access should come first. At least one regular or variable axis should be specified.
         kwargs: Same as for hist.Hist
         """
+
+        track_raw_counts = kwargs.pop("track_raw_counts", False)
+        if not isinstance(track_raw_counts, (bool, np.bool_)):
+            raise TypeError("track_raw_counts must be a boolean.")
 
         self._init_args = dict(kwargs)
 
@@ -37,6 +97,15 @@ class SparseHist(hist.Hist, family=hist):
         self._dense_axes = hist.axis.NamedAxesTuple(dense_axes)
 
         self.axes = hist.axis.NamedAxesTuple(chain(super().axes, dense_axes))
+
+        self._track_raw_counts = bool(track_raw_counts)
+        if self._track_raw_counts:
+            raw_axes = self._raw_count_dense_axes()
+            if len(raw_axes) != 1:
+                raise ValueError(
+                    "Raw-count tracking requires exactly one physical dense axis."
+                )
+            self._raw_counts = {}
 
     def _check_args(self, axes):
         on_cats = True
@@ -67,6 +136,7 @@ class SparseHist(hist.Hist, family=hist):
         if dense_axes is None:
             dense_axes = self.dense_axes
 
+        kwargs.setdefault("track_raw_counts", self.track_raw_counts)
         return type(self)(*categorical_axes, *dense_axes, **kwargs, **self._init_args)
 
     def make_dense(self, *axes, **kwargs):
@@ -117,6 +187,205 @@ class SparseHist(hist.Hist, family=hist):
         return self._dense_axes
 
     @property
+    def track_raw_counts(self):
+        return getattr(self, "_track_raw_counts", False)
+
+    def _raw_count_dense_axes(self):
+        return self._dense_axes
+
+    def _raw_count_shape(self):
+        return tuple(axis.extent for axis in self._raw_count_dense_axes())
+
+    @staticmethod
+    def _checked_add_raw_count_arrays(destination, addend, *, context):
+        if destination.dtype != np.dtype(np.uint64):
+            raise TypeError(f"{context} destination must have dtype uint64.")
+        increment = np.asarray(addend)
+        if increment.shape != destination.shape:
+            raise ValueError(
+                f"{context} shape mismatch: {increment.shape} != {destination.shape}."
+            )
+        if np.issubdtype(increment.dtype, np.signedinteger) and np.any(increment < 0):
+            raise ValueError(f"{context} cannot add negative raw counts.")
+        if not np.issubdtype(increment.dtype, np.integer):
+            raise TypeError(f"{context} addend must have an integer dtype.")
+        increment = increment.astype(np.uint64, copy=False)
+        maximum = np.iinfo(np.uint64).max
+        if np.any(increment > maximum - destination):
+            raise OverflowError(f"{context} would overflow uint64 raw-count storage.")
+        destination += increment
+
+    def _validated_raw_count_states(self):
+        if not self.track_raw_counts:
+            raise RuntimeError("Raw-count tracking is disabled for this histogram.")
+        if not hasattr(self, "_raw_counts"):
+            raise RuntimeError("Raw-count state is missing from a tracked histogram.")
+        dense_keys = set(self._dense_hists)
+        raw_keys = set(self._raw_counts)
+        if raw_keys != dense_keys:
+            missing = dense_keys - raw_keys
+            extra = raw_keys - dense_keys
+            raise RuntimeError(
+                "Raw-count classification coverage is incomplete: "
+                f"missing={len(missing)}, extra={len(extra)}."
+            )
+        expected_shape = self._raw_count_shape()
+        for key, state in self._raw_counts.items():
+            if state is None:
+                continue
+            if not isinstance(state, np.ndarray):
+                raise TypeError(f"Raw-count state for {key} is not an ndarray.")
+            if state.dtype != np.dtype(np.uint64):
+                raise TypeError(
+                    f"Raw-count state for {key} must have dtype uint64, got {state.dtype}."
+                )
+            if state.shape != expected_shape:
+                raise ValueError(
+                    f"Raw-count state for {key} has shape {state.shape}, "
+                    f"expected {expected_shape}."
+                )
+        return self._raw_counts
+
+    def _merge_raw_count_state(self, index_key, incoming, *, context):
+        if index_key not in self._raw_counts:
+            self._raw_counts[index_key] = (
+                None if incoming is None else np.array(incoming, dtype=np.uint64, copy=True)
+            )
+            return
+        current = self._raw_counts[index_key]
+        if current is None and incoming is None:
+            return
+        if current is None or incoming is None:
+            raise RuntimeError(
+                f"{context} mixes recorded and explicitly unrecorded raw-count state."
+            )
+        self._checked_add_raw_count_arrays(current, incoming, context=context)
+
+    def _record_raw_count_fill(self, index_key, raw_values, record_raw_count):
+        if not self.track_raw_counts:
+            if record_raw_count is True:
+                raise RuntimeError(
+                    "Cannot record raw counts when histogram tracking is disabled."
+                )
+            return
+        if record_raw_count is None:
+            raise RuntimeError(
+                "record_raw_count must be explicitly true or false when tracking is enabled."
+            )
+        if not isinstance(record_raw_count, (bool, np.bool_)):
+            raise TypeError("record_raw_count must be true, false, or unspecified.")
+        if not record_raw_count:
+            self._merge_raw_count_state(
+                index_key,
+                None,
+                context="Raw-count fill classification",
+            )
+            return
+
+        axes = self._raw_count_dense_axes()
+        counter = hist.Hist(*axes, storage="Int64")
+        counter.fill(**{axis.name: raw_values[axis.name] for axis in axes})
+        increment = np.asarray(counter.view(flow=True), dtype=np.uint64)
+        if index_key not in self._raw_counts:
+            self._raw_counts[index_key] = np.zeros(
+                self._raw_count_shape(), dtype=np.uint64
+            )
+        elif self._raw_counts[index_key] is None:
+            raise RuntimeError(
+                "Raw-count fill classification changed from false to true for one sparse key."
+            )
+        self._checked_add_raw_count_arrays(
+            self._raw_counts[index_key],
+            increment,
+            context="Raw-count fill",
+        )
+
+    def raw_counts(self, flow=False, as_dict=True):
+        if not as_dict:
+            raise ValueError("Raw counts are currently available only as a dictionary.")
+        states = self._validated_raw_count_states()
+        raw_axis = self._raw_count_dense_axes()[0]
+        start = 1 if raw_axis.traits.underflow and not flow else 0
+        stop = -1 if raw_axis.traits.overflow and not flow else None
+        return {
+            self.index_to_categories(key): np.array(state[start:stop], copy=True)
+            for key, state in states.items()
+            if state is not None
+        }
+
+    def copy_raw_counts_from(self, source):
+        """Enable tracking by copying compatible raw-count state from ``source``.
+
+        The destination numerical payload is unchanged. Categorical support and
+        the physical raw-count axes must match exactly, and an existing
+        destination raw-count state is never overwritten.
+        """
+
+        if not isinstance(source, SparseHist):
+            raise TypeError("Raw-count state can be copied only from a SparseHist.")
+        if self.track_raw_counts or hasattr(self, "_raw_counts"):
+            raise RuntimeError("Destination already has raw-count state.")
+        if not source.track_raw_counts:
+            raise RuntimeError("Source raw-count tracking is disabled.")
+
+        source_states = source._validated_raw_count_states()
+        if (
+            self.categorical_axes.name != source.categorical_axes.name
+            or tuple(type(axis) for axis in self.categorical_axes)
+            != tuple(type(axis) for axis in source.categorical_axes)
+        ):
+            raise ValueError("Categorical axes are incompatible for raw-count copying.")
+        if tuple(self._raw_count_dense_axes()) != tuple(
+            source._raw_count_dense_axes()
+        ):
+            raise ValueError("Physical dense axes are incompatible for raw-count copying.")
+
+        source_indices = {
+            tuple(source.index_to_categories(index)): index for index in source_states
+        }
+        destination_indices = {
+            tuple(self.index_to_categories(index)): index for index in self._dense_hists
+        }
+        if set(source_indices) != set(destination_indices):
+            missing = set(source_indices) - set(destination_indices)
+            extra = set(destination_indices) - set(source_indices)
+            raise ValueError(
+                "Categorical support is incompatible for raw-count copying: "
+                f"missing={len(missing)}, extra={len(extra)}."
+            )
+
+        self._track_raw_counts = True
+        self._raw_counts = {}
+        try:
+            for categories, destination_index in destination_indices.items():
+                self._merge_raw_count_state(
+                    destination_index,
+                    source_states[source_indices[categories]],
+                    context="Raw-count state copy",
+                )
+            self._validated_raw_count_states()
+        except Exception:
+            del self._raw_counts
+            self._track_raw_counts = False
+            raise
+        return self
+
+    def with_raw_counts_unrecorded(self):
+        """Return a numerical copy with every tracked raw-count cell unrecorded."""
+
+        self._validated_raw_count_states()
+        output = self.copy()
+        output._raw_counts = {}
+        for index in output._dense_hists:
+            output._merge_raw_count_state(
+                index,
+                None,
+                context="Explicit unrecorded raw-count classification",
+            )
+        output._validated_raw_count_states()
+        return output
+
+    @property
     def categorical_keys(self):
         for indices in self._dense_hists:
             yield self.index_to_categories(indices)
@@ -129,12 +398,28 @@ class SparseHist(hist.Hist, family=hist):
             self._dense_hists[index_key] = h
         return index_key
 
-    def fill(self, weight=None, sample=None, threads=None, **kwargs):
+    def fill(
+        self,
+        weight=None,
+        sample=None,
+        threads=None,
+        record_raw_count=None,
+        _raw_count_values=None,
+        **kwargs,
+    ):
         cats, nocats = self._split_axes(kwargs)
+
+        if self.track_raw_counts and record_raw_count is None:
+            raise RuntimeError(
+                "record_raw_count must be explicitly true or false when tracking is enabled."
+            )
 
         # fill the bookkeeping first, so that the index of the key exists.
         index_key = self._fill_bookkeep(*list(cats.values()))
         h = self._dense_hists[index_key]
+
+        raw_values = nocats if _raw_count_values is None else _raw_count_values
+        self._record_raw_count_fill(index_key, raw_values, record_raw_count)
 
         return h.fill(weight=weight, sample=sample, threads=threads, **nocats)
 
@@ -204,6 +489,7 @@ class SparseHist(hist.Hist, family=hist):
         hists: dict,
         categorical_axes: list,
         included_axes: Union[None, Sequence] = None,
+        raw_states=None,
     ):
         """Construct a sparse hist from a dictionary of dense histograms.
         hists: a dictionary of dense histograms.
@@ -222,6 +508,12 @@ class SparseHist(hist.Hist, family=hist):
             new_named = new_hist._make_tuple(named_key, included_axes)
             new_index = new_hist._fill_bookkeep(*new_named)
             new_hist._dense_hists[new_index] += dense_hist
+            if new_hist.track_raw_counts:
+                new_hist._merge_raw_count_state(
+                    new_index,
+                    raw_states[index_key],
+                    context="Sparse histogram selection",
+                )
         return new_hist
 
     def _from_hists_no_dense(
@@ -271,6 +563,10 @@ class SparseHist(hist.Hist, family=hist):
         return filtered
 
     def __setitem__(self, key, value):
+        if self.track_raw_counts:
+            raise RuntimeError(
+                "Direct assignment cannot preserve tracked raw-count semantics."
+            )
         index_key = self._make_index_key(key)
         cats, nocats = self._split_axes(index_key)
         filtered = self._filter_dense(index_key, filter_dense=False)
@@ -300,6 +596,24 @@ class SparseHist(hist.Hist, family=hist):
         index_key = self._make_index_key(key)
         filtered = self._filter_dense(index_key)
 
+        raw_states = None
+        if self.track_raw_counts:
+            _, dense_selection = self._split_axes(index_key)
+            if any(
+                not (
+                    isinstance(selector, slice)
+                    and selector.start is None
+                    and selector.stop is None
+                    and selector.step is None
+                )
+                for selector in dense_selection.values()
+            ):
+                raise RuntimeError(
+                    "Dense-axis selection cannot currently preserve tracked raw-count semantics."
+                )
+            states = self._validated_raw_count_states()
+            raw_states = {source_key: states[source_key] for source_key in filtered}
+
         preserve = [
             not (index_key[name] is sum or isinstance(index_key[name], int))
             for name in self.categorical_axes.name
@@ -322,7 +636,7 @@ class SparseHist(hist.Hist, family=hist):
                 # dense axes have collapsed to a single value
                 return self._from_hists_no_dense(filtered, new_cats)
         else:
-            return self._from_hists(filtered, new_cats, preserve)
+            return self._from_hists(filtered, new_cats, preserve, raw_states)
 
     def _ak_rec_op(self, op_on_dense):
         if len(self.categorical_axes) == 0:
@@ -358,6 +672,10 @@ class SparseHist(hist.Hist, family=hist):
 
     def reset(self):
         self._do_op(lambda h: h.reset())
+        if self.track_raw_counts:
+            for state in self._validated_raw_count_states().values():
+                if state is not None:
+                    state.fill(0)
 
     def view(self, flow=False, as_dict=True):
         if not as_dict:
@@ -392,6 +710,7 @@ class SparseHist(hist.Hist, family=hist):
                 cat_axes.append(axis)
 
         hnew = self.empty_from_axes(categorical_axes=cat_axes)
+        raw_states = self._validated_raw_count_states() if self.track_raw_counts else None
         for target, sources in groups.items():
             old_key = self._make_index_key({axis_name: sources})
             filtered = self._filter_dense(old_key)
@@ -403,6 +722,12 @@ class SparseHist(hist.Hist, family=hist):
 
                 hnew._fill_bookkeep(*new_key.values())
                 hnew._dense_hists[new_index] += dense
+                if hnew.track_raw_counts:
+                    hnew._merge_raw_count_state(
+                        new_index,
+                        raw_states[old_index],
+                        context="Sparse histogram group",
+                    )
         return hnew
 
     def remove(self, axis_name, bins):
@@ -443,6 +768,29 @@ class SparseHist(hist.Hist, family=hist):
         return True
 
     def _ibinary_op(self, other, op: str):
+        if self.track_raw_counts:
+            if isinstance(other, SparseHist):
+                if not other.track_raw_counts:
+                    raise RuntimeError(
+                        "Cannot combine tracked and untracked sparse histograms."
+                    )
+                if op != "__iadd__":
+                    raise RuntimeError(
+                        "Only additive histogram merges preserve raw-count semantics."
+                    )
+                self._validated_raw_count_states()
+                other_states = other._validated_raw_count_states()
+            elif op in {"__imul__", "__idiv__", "__itruediv__"}:
+                other_states = None
+            elif op == "__iadd__" and np.isscalar(other) and other == 0:
+                return self
+            else:
+                raise RuntimeError(
+                    "This arithmetic operation cannot preserve tracked raw-count semantics."
+                )
+        elif isinstance(other, SparseHist) and other.track_raw_counts:
+            raise RuntimeError("Cannot combine untracked and tracked sparse histograms.")
+
         if not isinstance(other, SparseHist):
             for h in self._dense_hists.values():
                 getattr(h, op)(other)
@@ -455,6 +803,12 @@ class SparseHist(hist.Hist, family=hist):
                 cats = other.index_to_categories(index_oh)
                 self._fill_bookkeep(*cats)
                 index = self.categories_to_index(cats)
+                if self.track_raw_counts:
+                    self._merge_raw_count_state(
+                        index,
+                        other_states[index_oh],
+                        context="Sparse histogram merge",
+                    )
                 getattr(self._dense_hists[index], op)(oh)
         return self
 
@@ -464,6 +818,18 @@ class SparseHist(hist.Hist, family=hist):
         return h._ibinary_op(other, op)
 
     def __reduce__(self):
+        if self.track_raw_counts:
+            return (
+                _read_tracked_sparsehist_from_reduce,
+                (
+                    type(self),
+                    list(self.categorical_axes),
+                    list(self.dense_axes),
+                    self._init_args,
+                    self._dense_hists,
+                    self._validated_raw_count_states(),
+                ),
+            )
         return (
             type(self)._read_from_reduce,
             (
@@ -475,12 +841,21 @@ class SparseHist(hist.Hist, family=hist):
         )
 
     @classmethod
-    def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
-        hnew = cls(*cat_axes, *dense_axes, **init_args)
-        for k, h in dense_hists.items():
-            hnew._fill_bookkeep(*hnew.index_to_categories(k))
-            hnew._dense_hists[k] = h
-        return hnew
+    def _read_from_reduce(
+        cls,
+        cat_axes,
+        dense_axes,
+        init_args,
+        dense_hists,
+    ):
+        return _restore_sparsehist_from_reduce(
+            cls,
+            cat_axes,
+            dense_axes,
+            init_args,
+            dense_hists,
+            track_raw_counts=False,
+        )
 
     def __iadd__(self, other):
         return self._ibinary_op(other, "__iadd__")
@@ -491,7 +866,7 @@ class SparseHist(hist.Hist, family=hist):
     def __radd__(self, other):
         return self._binary_op(other, "__add__")
 
-    def __isub(self, other):
+    def __isub__(self, other):
         return self._ibinary_op(other, "__isub__")
 
     def __sub__(self, other):

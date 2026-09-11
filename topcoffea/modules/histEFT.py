@@ -7,7 +7,10 @@ import numpy as np
 
 from typing import Any, List, Mapping, Union
 
-from topcoffea.modules.sparseHist import SparseHist
+from topcoffea.modules.sparseHist import (
+    SparseHist,
+    _read_tracked_sparsehist_from_reduce,
+)
 import topcoffea.modules.eft_helper as efth
 
 try:
@@ -131,6 +134,9 @@ class HistEFT(SparseHist, family=_family):
             categorical_axes, dense_axes, **self._init_args_eft, **kwargs
         )
 
+    def _raw_count_dense_axes(self):
+        return hist.axis.NamedAxesTuple([self._dense_axis])
+
     @property
     def wc_names(self):
         return list(self._wc_names)
@@ -198,6 +204,7 @@ class HistEFT(SparseHist, family=_family):
     def fill(
         self,
         eft_coeff: ArrayLike = None,  # [num of events x (num of wc coeffs + 1)]
+        record_raw_count=None,
         **values,
     ) -> Self:
         """
@@ -216,6 +223,7 @@ class HistEFT(SparseHist, family=_family):
         """
 
         n_events = len(values[self.dense_axis.name])
+        raw_count_values = {self.dense_axis.name: values[self.dense_axis.name]}
 
         if eft_coeff is None:
             # if eft_coeff not given, assume values only for sm
@@ -247,7 +255,13 @@ class HistEFT(SparseHist, family=_family):
         # [e0,      e0,      e0    ..., e1,     e1,     e1,     ...]
         # [ 0,      1,       2,    ..., 0,      1,      2,      ...]
         # [c00*w0, c01*w0, c02*w0, ..., c10*w1, c11*w1, c12*w1, ...]
-        super().fill(quadratic_term=indices, **values, weight=eft_coeff)
+        super().fill(
+            quadratic_term=indices,
+            **values,
+            weight=eft_coeff,
+            record_raw_count=record_raw_count,
+            _raw_count_values=raw_count_values,
+        )
 
     def _wc_for_eval(self, values):
         """Set the WC values used to evaluate the bin contents of this histogram
@@ -309,6 +323,19 @@ class HistEFT(SparseHist, family=_family):
         args = dict(self._init_args)
         args.update(self._init_args_eft)
 
+        if self.track_raw_counts:
+            return (
+                _read_tracked_sparsehist_from_reduce,
+                (
+                    type(self),
+                    list(self.categorical_axes),
+                    [self.dense_axis],
+                    args,
+                    self._dense_hists,
+                    self._validated_raw_count_states(),
+                ),
+            )
+
         return (
             type(self)._read_from_reduce,
             (
@@ -353,8 +380,19 @@ class HistEFT(SparseHist, family=_family):
         scaling[mask,:] = scaling[mask,:]/np.expand_dims(scaling[mask,0], -1) #divide by sm
         return scaling
     @classmethod
-    def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
-        return super()._read_from_reduce(cat_axes, dense_axes, init_args, dense_hists)
+    def _read_from_reduce(
+        cls,
+        cat_axes,
+        dense_axes,
+        init_args,
+        dense_hists,
+    ):
+        return super()._read_from_reduce(
+            cat_axes,
+            dense_axes,
+            init_args,
+            dense_hists,
+        )
 
     # this method should be moved to eft_helper once HistEFT is replaced.
     # the only change is that hist.view includes a under/overflow columns, thus

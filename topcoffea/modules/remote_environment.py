@@ -611,7 +611,6 @@ def get_environment(
 
     created = _create_env(env_name, request["resolved_environment_spec"], force=force or Path(env_name).exists())
     write_archive_manifest(created, request)
-    _clean_cache(cache_size, created)
     return created
 
 

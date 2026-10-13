@@ -12,12 +12,13 @@ The maintained caller normally uses `get_environment(...)`:
 ```python
 from topcoffea.modules.remote_environment import get_environment
 
-archive_path = get_environment(unstaged="rebuild", cache_size=3)
+archive_path = get_environment(unstaged="rebuild")
 ```
 
 It resolves the current request, derives a fingerprint-named path, validates
-any cache hit and adjacent manifest, builds only when necessary, writes a fresh
-manifest atomically, and trims older cache entries. Environment creation uses
+any cache hit and adjacent manifest, builds only when necessary, and writes a
+fresh manifest atomically. Successful builds preserve older worker-environment
+archives. Environment creation uses
 `poncho_package_create`; callers should use the higher-level topeft CLI instead
 of private builders.
 
@@ -83,9 +84,11 @@ Important status values are `valid`, `stale`, `unverifiable`, and
 Archive names use the first 16 hex characters of the full fingerprint. A cache
 entry is reused only after strict validation. `force=True` rebuilds the resolved
 key. Dirty watched sources with `unstaged="rebuild"` change the fingerprint and
-select a distinct archive rather than overwriting a clean entry. `cache_size`
-controls trimming after a successful build; the archive just created is
-protected.
+select a distinct archive rather than overwriting a clean entry. The normal
+successful build path does not evict historical archive tarballs; the existing
+`cache_size` argument does not cause automatic trimming. Existing-target
+rebuild and collision behavior for the resolved key remains separate from
+retention of other archives.
 
 Do not modify manifests or archives in place. After changing package inputs or
 watched source, resolve a new request and let `get_environment` choose the new

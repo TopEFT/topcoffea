@@ -423,6 +423,105 @@ class SparseHist(hist.Hist, family=hist):
 
         return h.fill(weight=weight, sample=sample, threads=threads, **nocats)
 
+    def fill_with_moments(
+        self,
+        *,
+        value_weight,
+        second_moment,
+        record_raw_count=None,
+        **kwargs,
+    ):
+        """Accumulate independent value and second-moment contributions in Weight storage.
+
+        ``value_weight`` is added to bin values; ``second_moment`` is added
+        directly to bin variances, without squaring either argument. Second
+        moments must be finite, real and nonnegative (zero is allowed).
+        Ordinary ``fill(weight=...)`` continues to derive its own weight**2.
+
+        Supply one scalar label per sparse categorical axis. Dense coordinates
+        and both contributions follow NumPy broadcasting; each element of the
+        broadcast result is one event, including multidimensional input grids.
+        Physical dense axes and their flow/growth behavior are handled by hist.
+
+        Raw-count classification follows ``fill``: tracking requires an
+        explicit ``record_raw_count`` and counts events independently of both
+        contributions. The existing one-physical-axis tracking limit remains.
+        This method stores numerical contributions only, not coverage metadata.
+        """
+        increment = self.make_dense(*self.dense_axes)
+        if increment.storage_type is not bh.storage.Weight:
+            raise TypeError("fill_with_moments requires Weight storage.")
+        unknown = set(kwargs) - set(self.axes.name)
+        if unknown:
+            raise ValueError(f"Unknown fill axis arguments: {sorted(unknown)}.")
+        cats, nocats = self._split_axes(kwargs)
+        if any(np.ndim(label) != 0 for label in cats.values()):
+            raise ValueError("Sparse categorical coordinates must be scalar labels.")
+
+        contributions = []
+        for name, value in (
+            ("value_weight", value_weight),
+            ("second_moment", second_moment),
+        ):
+            array = np.asarray(value)
+            if array.dtype.kind not in "buif":
+                raise TypeError(f"{name} must contain real numeric contributions.")
+            with np.errstate(over="ignore", invalid="ignore"):
+                contributions.append(array.astype(np.float64, copy=False))
+        if not np.all(np.isfinite(contributions[1])) or np.any(contributions[1] < 0):
+            raise ValueError("second_moment must be finite and nonnegative.")
+        try:
+            broadcast = np.broadcast_arrays(*nocats.values(), *contributions)
+        except ValueError as error:
+            raise ValueError(
+                "Dense coordinates, value_weight and second_moment must have "
+                "broadcast-compatible shapes."
+            ) from error
+        dense_values = {
+            name: array.ravel() for name, array in zip(nocats, broadcast[:-2])
+        }
+        weights, moments = (array.ravel() for array in broadcast[-2:])
+
+        if self.track_raw_counts:
+            if record_raw_count is None:
+                raise RuntimeError(
+                    "record_raw_count must be explicitly true or false when tracking is enabled."
+                )
+            if not isinstance(record_raw_count, (bool, np.bool_)):
+                raise TypeError("record_raw_count must be true, false, or unspecified.")
+        elif record_raw_count is True:
+            raise RuntimeError("Cannot record raw counts when histogram tracking is disabled.")
+
+        # Prepare both accumulators before changing the stored payload. Starting
+        # from the existing axes also preserves bins grown by earlier fills:
+        # the backend cannot always add histograms with different grown axes.
+        try:
+            existing = self._dense_hists.get(self.categories_to_index(cats.values()))
+        except KeyError:
+            existing = None
+        if existing is not None:
+            increment = existing.copy()
+        moment_hist = hist.Hist(*increment.axes, storage="Double")
+        moment_hist.view(flow=True)[...] = increment.view(flow=True).variance
+        increment.fill(**dense_values, weight=weights)
+        moment_hist.fill(**dense_values, weight=moments)
+        # Discard the temporary automatic weight**2; only the supplied moments
+        # contribute to the stored variance, using the backend's exact binning.
+        increment.view(flow=True).variance[...] = moment_hist.view(flow=True)
+
+        index_key = self._fill_bookkeep(*cats.values())
+        self._record_raw_count_fill(index_key, dense_values, record_raw_count)
+        self._dense_hists[index_key] = increment
+        return self
+
+    def _uses_weight_storage(self):
+        storage = self._init_args.get("storage")
+        return (
+            (isinstance(storage, str) and storage.lower() == "weight")
+            or isinstance(storage, bh.storage.Weight)
+            or (isinstance(storage, type) and issubclass(storage, bh.storage.Weight))
+        )
+
     def _to_bin(self, cat_name, value, offset=0):
         """Converts category value into its index slice in a StrCategory or IntCategory axis."""
         if isinstance(value, int):
@@ -768,6 +867,22 @@ class SparseHist(hist.Hist, family=hist):
         return True
 
     def _ibinary_op(self, other, op: str):
+        if isinstance(other, SparseHist) and op == "__iadd__" and (
+            self._uses_weight_storage() or other._uses_weight_storage()
+        ):
+            # The backend can silently ignore additions across storage types.
+            # Check before category allocation or raw-count accumulation.
+            if self._uses_weight_storage() != other._uses_weight_storage():
+                raise ValueError("SparseHist addition requires matching Weight storage.")
+            if (self.categorical_axes.name != other.categorical_axes.name
+                    or tuple(map(type, self.categorical_axes))
+                    != tuple(map(type, other.categorical_axes))):
+                raise ValueError("Weight histogram addition requires matching categorical axes.")
+            if (self.dense_axes.name != other.dense_axes.name
+                    or len(self.dense_axes) != len(other.dense_axes)
+                    or any(type(left) is not type(right) or left != right
+                           for left, right in zip(self.dense_axes, other.dense_axes))):
+                raise ValueError("Weight histogram addition requires compatible dense axes.")
         if self.track_raw_counts:
             if isinstance(other, SparseHist):
                 if not other.track_raw_counts:

@@ -1,3 +1,7 @@
+from contextlib import contextmanager as _telemetry_contextmanager
+from contextvars import ContextVar as _TelemetryContextVar
+import time as _telemetry_time
+import sys as _telemetry_sys
 import numpy as np
 import awkward as ak
 import uproot
@@ -10,13 +14,90 @@ from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 
 
+
+# The reporter is supplied by the processor; correction owners never retain
+# events, arrays or payloads. State is context-local and bounded by operation
+# names in one reached processor block. No reporter means no clock/row work.
+_correction_telemetry = _TelemetryContextVar("correction_telemetry", default=None)
+
+
+@_telemetry_contextmanager
+def telemetry_context(reporter, syst_var="preloop", iteration_index=-1):
+    """Aggregate reached calls in one block and restore the previous context.
+
+    processor_operation records use ns and process CPU time, with scalar
+    operation/parent names, object label and iteration index. calls includes
+    failed calls; failures is its failed subset. Inclusive totals overlap their
+    children; exclusive totals subtract immediate timed children only. Neither
+    value attributes work deferred by a lazy backend. Emit after timing stops.
+    """
+    state = None if reporter is None else {"rows": {}, "stack": []}
+    token = _correction_telemetry.set(state)
+    try:
+        yield
+    finally:
+        _correction_telemetry.reset(token)
+        if state is not None:
+            for (operation, parent), row in state["rows"].items():
+                try:
+                    reporter.mark("processor_operation", operation=operation,
+                                  parent_operation=parent, syst_var=syst_var,
+                                  iteration_index=iteration_index, **row)
+                except Exception as error:
+                    print(f"WARNING: optional correction telemetry emission failed: {error}",
+                          file=_telemetry_sys.stderr, flush=True)
+
+
+@_telemetry_contextmanager
+def telemetry_operation(operation):
+    """Measure this synchronous native block without forcing lazy work."""
+    state = _correction_telemetry.get()
+    if state is None:
+        yield
+        return
+    stack = state["stack"]
+    parent = stack[-1][0] if stack else ""
+    frame = [operation, 0, 0]
+    stack.append(frame)
+    wall = _telemetry_time.perf_counter_ns()
+    cpu = _telemetry_time.process_time_ns()
+    failed = 0
+    try:
+        yield
+    except BaseException:
+        failed = 1
+        raise
+    finally:
+        elapsed_wall = _telemetry_time.perf_counter_ns() - wall
+        elapsed_cpu = _telemetry_time.process_time_ns() - cpu
+        stack.pop()
+        if stack:
+            stack[-1][1] += elapsed_wall
+            stack[-1][2] += elapsed_cpu
+        key = (operation, parent)
+        if key not in state["rows"]:
+            state["rows"][key] = dict.fromkeys((
+                "inclusive_wall_ns", "inclusive_cpu_ns", "exclusive_wall_ns",
+                "exclusive_cpu_ns", "calls", "failures"), 0)
+        row = state["rows"][key]
+        row["inclusive_wall_ns"] += elapsed_wall
+        row["inclusive_cpu_ns"] += elapsed_cpu
+        row["exclusive_wall_ns"] += elapsed_wall - frame[1]
+        row["exclusive_cpu_ns"] += elapsed_cpu - frame[2]
+        row["calls"] += 1
+        row["failures"] += failed
+
+
 def _evaluate_correctionlib(correction, *args):
     """Evaluate correctionlib without exposing it to Awkward-1 arrays."""
-    numpy_args = tuple(
-        ak.to_numpy(arg) if isinstance(arg, ak.highlevel.Array) else arg
-        for arg in args
-    )
-    return correction.evaluate(*numpy_args)
+    with telemetry_operation("topcoffea._evaluate_correctionlib.total"):
+        with telemetry_operation("topcoffea._evaluate_correctionlib.conversion_and_flatten"):
+            numpy_args = tuple(
+                ak.to_numpy(arg) if isinstance(arg, ak.highlevel.Array) else arg
+                for arg in args
+            )
+        with telemetry_operation("topcoffea._evaluate_correctionlib.evaluate"):
+            return correction.evaluate(*numpy_args)
 
 clib_year_map = {
     "2016APV": "2016preVFP_UL",
@@ -49,63 +130,74 @@ goldenJSON_map = {
 #   - Where P(MC) = Product over tagged (eff) * Product over not tagged (1-eff)
 #   - Where P(DATA) = Product over tagged (eff*sf) * Product over not tagged (1-eff*sf)
 def get_method1a_wgt_singlewp(eff,sf,passes_tag):
-    p_mc = ak.prod(eff[passes_tag],axis=-1) * ak.prod(1-eff[~passes_tag],axis=-1)
-    p_data = ak.prod(eff[passes_tag]*sf[passes_tag],axis=-1) * ak.prod(1-eff[~passes_tag]*sf[~passes_tag],axis=-1)
-    wgt = p_data/p_mc
-    return wgt
+    with telemetry_operation("topcoffea.get_method1a_wgt_singlewp.total"):
+        p_mc = ak.prod(eff[passes_tag],axis=-1) * ak.prod(1-eff[~passes_tag],axis=-1)
+        p_data = ak.prod(eff[passes_tag]*sf[passes_tag],axis=-1) * ak.prod(1-eff[~passes_tag]*sf[~passes_tag],axis=-1)
+        wgt = p_data/p_mc
+        return wgt
 
 def get_method1a_wgt_doublewp(effA, effB, sfA, sfB, cutA, cutB, cutC):
-    effA_data = effA * sfA
-    effB_data = effB * sfB
+    with telemetry_operation("topcoffea.get_method1a_wgt_doublewp.total"):
+        effA_data = effA * sfA
+        effB_data = effB * sfB
 
-    pMC = ak.prod(effA[cutA], axis=-1) * ak.prod(effB[cutB] - effA[cutB], axis=-1) * ak.prod(1 - effB[cutC], axis=-1)
-    pMC = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-    pData = ak.prod(effA_data[cutA], axis=-1) * ak.prod(effB_data[cutB] - effA_data[cutB], axis=-1) * ak.prod(1 - effB_data[cutC], axis=-1)
+        pMC = ak.prod(effA[cutA], axis=-1) * ak.prod(effB[cutB] - effA[cutB], axis=-1) * ak.prod(1 - effB[cutC], axis=-1)
+        pMC = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
+        # Only the Loose-not-Medium data interval can use this unity fallback.
+        interval_data = effB_data[cutB] - effA_data[cutB]
+        interval_data = ak.where(interval_data < 0, effB[cutB] - effA[cutB], interval_data)
+        pData = ak.prod(effA_data[cutA], axis=-1) * ak.prod(interval_data, axis=-1) * ak.prod(1 - effB_data[cutC], axis=-1)
 
-    return pData, pMC
+        return pData, pMC
 
 # Evaluate btag sf from central correctionlib json
 def btag_sf_eval(jet_collection,wp,year,method,syst):
     # Get the right sf json for the given year
 
-    clib_year = clib_year_map[year]
-    btagjson = "btagging"
-    if year.startswith("2023"):
-        if "tnp" in method:
-            btagjson += "_methods_v0.json"
-        elif "light" in method:
-            btagjson += "_v0.json"
+    with telemetry_operation("topcoffea.btag_sf_eval.total"):
+        clib_year = clib_year_map[year]
+        btagjson = "btagging"
+        if year.startswith("2023"):
+            if "tnp" in method:
+                btagjson += "_methods_v0.json"
+            elif "light" in method:
+                btagjson += "_v0.json"
+            else:
+                btagjson += ".json.gz"
         else:
             btagjson += ".json.gz"
-    else:
-        btagjson += ".json.gz"
 
-    fname = topcoffea_path(f"data/POG/BTV/{clib_year}/{btagjson}")
+        fname = topcoffea_path(f"data/POG/BTV/{clib_year}/{btagjson}")
 
-    # Flatten the input (until correctionlib handles jagged data natively)
-    abseta_flat = ak.flatten(abs(jet_collection.eta))
-    pt_flat = ak.flatten(jet_collection.pt)
-    flav_flat = ak.flatten(jet_collection.hadronFlavour)
-    if year.startswith("2023"):
-        flav_flat = ak.where(flav_flat == 4, 5, flav_flat)
+        # Flatten the input (until correctionlib handles jagged data natively)
+        with telemetry_operation("topcoffea.btag_sf_eval.conversion_and_flatten"):
+            abseta_flat = ak.flatten(abs(jet_collection.eta))
+        with telemetry_operation("topcoffea.btag_sf_eval.conversion_and_flatten"):
+            pt_flat = ak.flatten(jet_collection.pt)
+        with telemetry_operation("topcoffea.btag_sf_eval.conversion_and_flatten"):
+            flav_flat = ak.flatten(jet_collection.hadronFlavour)
+        if year.startswith("2023"):
+            flav_flat = ak.where(flav_flat == 4, 5, flav_flat)
     
-    # For now, cap all pt at 1000 https://cms-talk.web.cern.ch/t/question-about-evaluating-sfs-with-correctionlib/31763
-    pt_flat = ak.where(pt_flat>1000.0,1000.0,pt_flat)
+        # For now, cap all pt at 1000 https://cms-talk.web.cern.ch/t/question-about-evaluating-sfs-with-correctionlib/31763
+        pt_flat = ak.where(pt_flat>1000.0,1000.0,pt_flat)
     
-    # Evaluate the SF
-    ceval = correctionlib.CorrectionSet.from_file(fname)
+        # Evaluate the SF
+        with telemetry_operation("topcoffea.btag_sf_eval.payload_read_decompress_and_correctionset"):
+            ceval = correctionlib.CorrectionSet.from_file(fname)
 
-    try:
-        corr = ceval[method]
-    except KeyError:
-        print(f"{method} not found.")
+        try:
+            corr = ceval[method]
+        except KeyError:
+            print(f"{method} not found.")
 
-    sf_flat = _evaluate_correctionlib(
-        ceval[method], syst, wp, flav_flat, abseta_flat, pt_flat
-    )
-    sf = ak.unflatten(sf_flat,ak.num(jet_collection.pt))
+        sf_flat = _evaluate_correctionlib(
+            ceval[method], syst, wp, flav_flat, abseta_flat, pt_flat
+        )
+        with telemetry_operation("topcoffea.btag_sf_eval.unflatten"):
+            sf = ak.unflatten(sf_flat,ak.num(jet_collection.pt))
 
-    return sf
+        return sf
 
 
 ###############################################################
@@ -171,17 +263,19 @@ for year in ['2016', '2016APV', '2017', '2018']:
         )
 
 def GetPUSF(nTrueInt, year, var='nominal'):
-    year = str(year)
-    if year not in clib_year_map.keys():
-        raise Exception(f"Error: Unknown year \"{year}\".")
+    with telemetry_operation("topcoffea.GetPUSF.total"):
+        year = str(year)
+        if year not in clib_year_map.keys():
+            raise Exception(f"Error: Unknown year \"{year}\".")
 
-    clib_year = clib_year_map[year]
-    json_path = topcoffea_path(f"data/POG/LUM/{clib_year}/puWeights.json.gz")
-    ceval = correctionlib.CorrectionSet.from_file(json_path)
+        clib_year = clib_year_map[year]
+        json_path = topcoffea_path(f"data/POG/LUM/{clib_year}/puWeights.json.gz")
+        with telemetry_operation("topcoffea.GetPUSF.payload_read_decompress_and_correctionset"):
+            ceval = correctionlib.CorrectionSet.from_file(json_path)
 
-    pucorr_tag = goldenJSON_map[year]
-    pu_corr = _evaluate_correctionlib(ceval[pucorr_tag], nTrueInt, var)
-    return pu_corr
+        pucorr_tag = goldenJSON_map[year]
+        pu_corr = _evaluate_correctionlib(ceval[pucorr_tag], nTrueInt, var)
+        return pu_corr
 
 
 

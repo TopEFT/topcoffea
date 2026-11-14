@@ -1,3 +1,4 @@
+from topcoffea.modules.corrections import telemetry_operation
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 from coffea.jetmet_tools.FactorizedJetCorrector import FactorizedJetCorrector, _levelre
@@ -31,63 +32,67 @@ class JECStack:
 
     def __post_init__(self):
         """Handle initialization based on use_clib flag."""
-        if self.use_clib:
-            self._initialize_clib()
-        else:
-            self._initialize_jecstack()
+        with telemetry_operation("JECStack.__post_init__.total"):
+            if self.use_clib:
+                self._initialize_clib()
+            else:
+                self._initialize_jecstack()
 
     def _initialize_clib(self):
         """Initialize the clib-based correction tools."""
-        if not self.json_path:
-            raise ValueError("json_path is required for clib initialization.")
+        with telemetry_operation("JECStack._initialize_clib.total"):
+            if not self.json_path:
+                raise ValueError("json_path is required for clib initialization.")
 
-        # Load corrections directly from the JSON path
-        self.cset = clib.CorrectionSet.from_file(self.json_path)
+            # Load corrections directly from the JSON path
+            with telemetry_operation("JECStack._initialize_clib.payload_read_decompress_and_correctionset"):
+                self.cset = clib.CorrectionSet.from_file(self.json_path)
 
-        # Construct lists for jec, jer, and uncertainties
-        self.jec_names_clib = [f"{self.jec_tag}_{level}_{self.jet_algo}" for level in self.jec_levels]
-        self.jer_names_clib = []
-        self.jec_uncsources_clib = []
+            # Construct lists for jec, jer, and uncertainties
+            self.jec_names_clib = [f"{self.jec_tag}_{level}_{self.jet_algo}" for level in self.jec_levels]
+            self.jer_names_clib = []
+            self.jec_uncsources_clib = []
 
-        if self.jer_tag is not None:
-            self.jer_names_clib = [
-                f"{self.jer_tag}_ScaleFactor_{self.jet_algo}",
-                f"{self.jer_tag}_PtResolution_{self.jet_algo}"
-            ]
+            if self.jer_tag is not None:
+                self.jer_names_clib = [
+                    f"{self.jer_tag}_ScaleFactor_{self.jet_algo}",
+                    f"{self.jer_tag}_PtResolution_{self.jet_algo}"
+                ]
 
-        if self.junc_types:
-            self.jec_uncsources_clib = [f"{self.jec_tag}_{junc_type}_{self.jet_algo}" for junc_type in self.junc_types]
+            if self.junc_types:
+                self.jec_uncsources_clib = [f"{self.jec_tag}_{junc_type}_{self.jet_algo}" for junc_type in self.junc_types]
 
-        # Combine requested corrections
-        requested_corrections = self.jec_names_clib + self.jer_names_clib + self.jec_uncsources_clib
-        available_corrections = list(self.cset.keys())
-        missing_corrections = [name for name in requested_corrections if name not in available_corrections]
+            # Combine requested corrections
+            requested_corrections = self.jec_names_clib + self.jer_names_clib + self.jec_uncsources_clib
+            available_corrections = list(self.cset.keys())
+            missing_corrections = [name for name in requested_corrections if name not in available_corrections]
 
-        if missing_corrections:
-            raise ValueError(
-                f"\nMissing corrections in the CorrectionSet: {missing_corrections}. "
-                f"\n\nAvailable corrections are: {available_corrections}. "
-                f"\n\nRequested corrections are: {requested_corrections}"
-            )
+            if missing_corrections:
+                raise ValueError(
+                    f"\nMissing corrections in the CorrectionSet: {missing_corrections}. "
+                    f"\n\nAvailable corrections are: {available_corrections}. "
+                    f"\n\nRequested corrections are: {requested_corrections}"
+                )
 
-        # Store corrections directly in the JECStack for easy access
-        self.corrections = {name: self.cset[name] for name in requested_corrections}
+            # Store corrections directly in the JECStack for easy access
+            self.corrections = {name: self.cset[name] for name in requested_corrections}
 
     def _initialize_jecstack(self):
         """Initialize the JECStack tools for the non-clib scenario."""
-        assembled = self.assemble_corrections()
+        with telemetry_operation("JECStack._initialize_jecstack.total"):
+            assembled = self.assemble_corrections()
 
-        if len(assembled["jec"]) > 0:
-            self.jec = FactorizedJetCorrector(**assembled["jec"])
-        if len(assembled["junc"]) > 0:
-            self.junc = JetCorrectionUncertainty(**assembled["junc"])
-        if len(assembled["jer"]) > 0:
-            self.jer = JetResolution(**assembled["jer"])
-        if len(assembled["jersf"]) > 0:
-            self.jersf = JetResolutionScaleFactor(**assembled["jersf"])
+            if len(assembled["jec"]) > 0:
+                self.jec = FactorizedJetCorrector(**assembled["jec"])
+            if len(assembled["junc"]) > 0:
+                self.junc = JetCorrectionUncertainty(**assembled["junc"])
+            if len(assembled["jer"]) > 0:
+                self.jer = JetResolution(**assembled["jer"])
+            if len(assembled["jersf"]) > 0:
+                self.jersf = JetResolutionScaleFactor(**assembled["jersf"])
 
-        if (self.jer is None) != (self.jersf is None):
-            raise ValueError("Cannot apply JER-SF without an input JER, and vice-versa!")
+            if (self.jer is None) != (self.jersf is None):
+                raise ValueError("Cannot apply JER-SF without an input JER, and vice-versa!")
 
     def to_list(self):
         """Convert to list for clib case."""

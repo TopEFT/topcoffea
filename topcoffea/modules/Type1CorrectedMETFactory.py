@@ -1,3 +1,4 @@
+from topcoffea.modules.corrections import telemetry_operation
 from copy import copy
 from functools import reduce
 
@@ -84,40 +85,43 @@ def _input_values(objs, corr_obj, name_map, run, current_correction=None):
 
 
 def _evaluate_jec_sequence(objs, name_map, jec_stack, correction_names, run):
-    corrections_list = []
-    total_correction = None
+    with telemetry_operation("Type1CorrectedMETFactory._evaluate_jec_sequence.total"):
+        corrections_list = []
+        total_correction = None
 
-    for correction_name in correction_names:
-        current_correction = None
-        if corrections_list:
-            ones = numpy.ones_like(corrections_list[-1], dtype=numpy.float32)
-            current_correction = reduce(
-                lambda x, y: y * x,
-                corrections_list,
-                ones,
-            ).astype(dtype=numpy.float32)
+        for correction_name in correction_names:
+            current_correction = None
+            if corrections_list:
+                ones = numpy.ones_like(corrections_list[-1], dtype=numpy.float32)
+                current_correction = reduce(
+                    lambda x, y: y * x,
+                    corrections_list,
+                    ones,
+                ).astype(dtype=numpy.float32)
 
-        correction = jec_stack.corrections.get(correction_name)
-        if correction is None:
-            raise ValueError(f"Correction {correction_name} not found in the JEC stack.")
+            correction = jec_stack.corrections.get(correction_name)
+            if correction is None:
+                raise ValueError(f"Correction {correction_name} not found in the JEC stack.")
 
-        inputs = _input_values(
-            objs,
-            correction,
-            name_map,
-            run,
-            current_correction=current_correction,
-        )
-        evaluated = correction.evaluate(*inputs).astype(dtype=numpy.float32)
-        corrections_list.append(evaluated)
+            inputs = _input_values(
+                objs,
+                correction,
+                name_map,
+                run,
+                current_correction=current_correction,
+            )
+            with telemetry_operation("Type1CorrectedMETFactory._evaluate_jec_sequence.evaluate"):
+                evaluated = correction.evaluate(*inputs).astype(dtype=numpy.float32)
+            corrections_list.append(evaluated)
+            if total_correction is None:
+                total_correction = numpy.ones_like(evaluated, dtype=numpy.float32)
+            total_correction *= evaluated
+
         if total_correction is None:
-            total_correction = numpy.ones_like(evaluated, dtype=numpy.float32)
-        total_correction *= evaluated
+            raise ValueError("No JEC corrections were configured for Type-1 MET.")
 
-    if total_correction is None:
-        raise ValueError("No JEC corrections were configured for Type-1 MET.")
-
-    return awkward.unflatten(total_correction, _object_counts(objs))
+        with telemetry_operation("Type1CorrectedMETFactory._evaluate_jec_sequence.unflatten"):
+            return awkward.unflatten(total_correction, _object_counts(objs))
 
 
 def _met_from_xy(px, py):
@@ -158,28 +162,29 @@ class Type1CorrectedMETFactory(object):
         suppress_forward_eta_stochastic_jer=False,
         unclustered_mode="auto",
     ):
-        if not isinstance(jec_stack, JECStack):
-            if not (
-                hasattr(jec_stack, "corrections")
-                and hasattr(jec_stack, "get_l1_jec_names")
-                and hasattr(jec_stack, "get_full_jec_names")
-            ):
-                raise TypeError("jec_stack must be a JECStack or expose the JECStack Type-1 helper API.")
+        with telemetry_operation("Type1CorrectedMETFactory.__init__.total"):
+            if not isinstance(jec_stack, JECStack):
+                if not (
+                    hasattr(jec_stack, "corrections")
+                    and hasattr(jec_stack, "get_l1_jec_names")
+                    and hasattr(jec_stack, "get_full_jec_names")
+                ):
+                    raise TypeError("jec_stack must be a JECStack or expose the JECStack Type-1 helper API.")
 
-        for name in _TYPE1_REQUIRED_KEYS:
-            if name not in name_map or name_map[name] is None:
-                raise ValueError(
-                    f"There is no name mapping for {name}, which is needed for Type1CorrectedMETFactory."
-                )
+            for name in _TYPE1_REQUIRED_KEYS:
+                if name not in name_map or name_map[name] is None:
+                    raise ValueError(
+                        f"There is no name mapping for {name}, which is needed for Type1CorrectedMETFactory."
+                    )
 
-        if unclustered_mode not in ("auto", "direct_pt_phi", "delta_xy"):
-            raise ValueError(f"Unknown unclustered_mode '{unclustered_mode}'.")
+            if unclustered_mode not in ("auto", "direct_pt_phi", "delta_xy"):
+                raise ValueError(f"Unknown unclustered_mode '{unclustered_mode}'.")
 
-        self.name_map = name_map
-        self.jec_stack = jec_stack
-        self.run = run
-        self.suppress_forward_eta_stochastic_jer = suppress_forward_eta_stochastic_jer
-        self.unclustered_mode = unclustered_mode
+            self.name_map = name_map
+            self.jec_stack = jec_stack
+            self.run = run
+            self.suppress_forward_eta_stochastic_jer = suppress_forward_eta_stochastic_jer
+            self.unclustered_mode = unclustered_mode
 
     def _get_unclustered_mode(self, stored_met):
         if self.unclustered_mode != "auto":
@@ -199,21 +204,22 @@ class Type1CorrectedMETFactory(object):
         )
 
     def _evaluate_l1_and_full(self, objs, name_map):
-        l1_factor = _evaluate_jec_sequence(
-            objs,
-            name_map,
-            self.jec_stack,
-            self.jec_stack.get_l1_jec_names(),
-            self.run,
-        )
-        full_factor = _evaluate_jec_sequence(
-            objs,
-            name_map,
-            self.jec_stack,
-            self.jec_stack.get_full_jec_names(),
-            self.run,
-        )
-        return l1_factor, full_factor
+        with telemetry_operation("Type1CorrectedMETFactory._evaluate_l1_and_full.total"):
+            l1_factor = _evaluate_jec_sequence(
+                objs,
+                name_map,
+                self.jec_stack,
+                self.jec_stack.get_l1_jec_names(),
+                self.run,
+            )
+            full_factor = _evaluate_jec_sequence(
+                objs,
+                name_map,
+                self.jec_stack,
+                self.jec_stack.get_full_jec_names(),
+                self.run,
+            )
+            return l1_factor, full_factor
 
     def _jet_jec_name_map(self):
         name_map = dict(self.name_map)
@@ -283,11 +289,12 @@ class Type1CorrectedMETFactory(object):
         )
 
     def _build_corrected_jets_for_variations(self, raw_jets, lazy_cache):
-        factory = self._make_corrected_jets_factory()
-        return factory.build(
-            self._prepare_jets_for_corrected_factory(raw_jets),
-            lazy_cache={} if lazy_cache is None else lazy_cache,
-        )
+        with telemetry_operation("Type1CorrectedMETFactory._build_corrected_jets_for_variations.total"):
+            factory = self._make_corrected_jets_factory()
+            return factory.build(
+                self._prepare_jets_for_corrected_factory(raw_jets),
+                lazy_cache={} if lazy_cache is None else lazy_cache,
+            )
 
     def _jet_type1_deltas(self, jets, factor_l1, factor_full, pt_scale_factor=None):
         pt_no_mu_raw = self._jet_no_mu_raw_pt(jets)
@@ -383,85 +390,86 @@ class Type1CorrectedMETFactory(object):
         )
 
     def build(self, stored_met, raw_met, raw_jets, corr_t1_met_jets, lazy_cache=None):
-        if not isinstance(stored_met, awkward.highlevel.Array):
-            raise TypeError("'stored_met' must be an awkward array.")
-        if not isinstance(raw_met, awkward.highlevel.Array):
-            raise TypeError("'raw_met' must be an awkward array.")
-        if not isinstance(raw_jets, awkward.highlevel.Array):
-            raise TypeError("'raw_jets' must be an awkward array.")
-        if not isinstance(corr_t1_met_jets, awkward.highlevel.Array):
-            raise TypeError("'corr_t1_met_jets' must be an awkward array.")
+        with telemetry_operation("Type1CorrectedMETFactory.build.total"):
+            if not isinstance(stored_met, awkward.highlevel.Array):
+                raise TypeError("'stored_met' must be an awkward array.")
+            if not isinstance(raw_met, awkward.highlevel.Array):
+                raise TypeError("'raw_met' must be an awkward array.")
+            if not isinstance(raw_jets, awkward.highlevel.Array):
+                raise TypeError("'raw_jets' must be an awkward array.")
+            if not isinstance(corr_t1_met_jets, awkward.highlevel.Array):
+                raise TypeError("'corr_t1_met_jets' must be an awkward array.")
 
-        jec_jets = self._prepare_jets_for_jec(raw_jets)
-        jet_l1, jet_full = self._evaluate_l1_and_full(jec_jets, self._jet_jec_name_map())
-        jet_deltas = self._jet_type1_deltas(raw_jets, jet_l1, jet_full)
+            jec_jets = self._prepare_jets_for_jec(raw_jets)
+            jet_l1, jet_full = self._evaluate_l1_and_full(jec_jets, self._jet_jec_name_map())
+            jet_deltas = self._jet_type1_deltas(raw_jets, jet_l1, jet_full)
 
-        corr_jec_jets = self._prepare_corr_t1_for_jec(corr_t1_met_jets)
-        corr_l1, corr_full = self._evaluate_l1_and_full(corr_jec_jets, self._corr_t1_jec_name_map())
-        corr_deltas = self._corr_t1_type1_deltas(corr_t1_met_jets, corr_l1, corr_full)
+            corr_jec_jets = self._prepare_corr_t1_for_jec(corr_t1_met_jets)
+            corr_l1, corr_full = self._evaluate_l1_and_full(corr_jec_jets, self._corr_t1_jec_name_map())
+            corr_deltas = self._corr_t1_type1_deltas(corr_t1_met_jets, corr_l1, corr_full)
 
-        total_delta_px = jet_deltas.delta_px + corr_deltas.delta_px
-        total_delta_py = jet_deltas.delta_py + corr_deltas.delta_py
+            total_delta_px = jet_deltas.delta_px + corr_deltas.delta_px
+            total_delta_py = jet_deltas.delta_py + corr_deltas.delta_py
 
-        nominal_vector = _type1_met(raw_met, self.name_map, total_delta_px, total_delta_py)
-        out = _copy_with_met(stored_met, self.name_map, nominal_vector)
-        out[self.name_map["METpt"] + "_orig"] = raw_met[self.name_map["RawMETpt"]]
-        out[self.name_map["METphi"] + "_orig"] = raw_met[self.name_map["RawMETphi"]]
+            nominal_vector = _type1_met(raw_met, self.name_map, total_delta_px, total_delta_py)
+            out = _copy_with_met(stored_met, self.name_map, nominal_vector)
+            out[self.name_map["METpt"] + "_orig"] = raw_met[self.name_map["RawMETpt"]]
+            out[self.name_map["METphi"] + "_orig"] = raw_met[self.name_map["RawMETphi"]]
 
-        out_dict = {field: out[field] for field in awkward.fields(out)}
-        out_dict["MET_UnclusteredEnergy"] = self._make_unclustered(stored_met, out)
+            out_dict = {field: out[field] for field in awkward.fields(out)}
+            out_dict["MET_UnclusteredEnergy"] = self._make_unclustered(stored_met, out)
 
-        variation_jets = self._build_corrected_jets_for_variations(raw_jets, lazy_cache)
+            variation_jets = self._build_corrected_jets_for_variations(raw_jets, lazy_cache)
 
-        # CorrT1METJet is included in the nominal Type-1 correction but kept nominal
-        # under JES/JER variations, following the coffea PR reference implementation.
-        for unc in filter(lambda x: x.startswith(("JER", "JES")), awkward.fields(variation_jets)):
-            nominal_pt = variation_jets[self.name_map["JetPt"]]
-            safe_nominal = awkward.where(nominal_pt > 0, nominal_pt, 1.0)
-            scale_up = variation_jets[unc].up[self.name_map["JetPt"]] / safe_nominal
-            scale_down = variation_jets[unc].down[self.name_map["JetPt"]] / safe_nominal
+            # CorrT1METJet is included in the nominal Type-1 correction but kept nominal
+            # under JES/JER variations, following the coffea PR reference implementation.
+            for unc in filter(lambda x: x.startswith(("JER", "JES")), awkward.fields(variation_jets)):
+                nominal_pt = variation_jets[self.name_map["JetPt"]]
+                safe_nominal = awkward.where(nominal_pt > 0, nominal_pt, 1.0)
+                scale_up = variation_jets[unc].up[self.name_map["JetPt"]] / safe_nominal
+                scale_down = variation_jets[unc].down[self.name_map["JetPt"]] / safe_nominal
 
-            up_jet_deltas = self._jet_type1_deltas(
-                raw_jets,
-                jet_l1,
-                jet_full,
-                pt_scale_factor=scale_up,
-            )
-            down_jet_deltas = self._jet_type1_deltas(
-                raw_jets,
-                jet_l1,
-                jet_full,
-                pt_scale_factor=scale_down,
-            )
+                up_jet_deltas = self._jet_type1_deltas(
+                    raw_jets,
+                    jet_l1,
+                    jet_full,
+                    pt_scale_factor=scale_up,
+                )
+                down_jet_deltas = self._jet_type1_deltas(
+                    raw_jets,
+                    jet_l1,
+                    jet_full,
+                    pt_scale_factor=scale_down,
+                )
 
-            up_vector = _type1_met(
-                raw_met,
-                self.name_map,
-                up_jet_deltas.delta_px + corr_deltas.delta_px,
-                up_jet_deltas.delta_py + corr_deltas.delta_py,
-            )
-            down_vector = _type1_met(
-                raw_met,
-                self.name_map,
-                down_jet_deltas.delta_px + corr_deltas.delta_px,
-                down_jet_deltas.delta_py + corr_deltas.delta_py,
-            )
+                up_vector = _type1_met(
+                    raw_met,
+                    self.name_map,
+                    up_jet_deltas.delta_px + corr_deltas.delta_px,
+                    up_jet_deltas.delta_py + corr_deltas.delta_py,
+                )
+                down_vector = _type1_met(
+                    raw_met,
+                    self.name_map,
+                    down_jet_deltas.delta_px + corr_deltas.delta_px,
+                    down_jet_deltas.delta_py + corr_deltas.delta_py,
+                )
 
-            out_dict[unc] = awkward.zip(
-                {
-                    "up": _copy_with_met(stored_met, self.name_map, up_vector),
-                    "down": _copy_with_met(stored_met, self.name_map, down_vector),
-                },
+                out_dict[unc] = awkward.zip(
+                    {
+                        "up": _copy_with_met(stored_met, self.name_map, up_vector),
+                        "down": _copy_with_met(stored_met, self.name_map, down_vector),
+                    },
+                    depth_limit=1,
+                    with_name="METSystematic",
+                )
+
+            return awkward.zip(
+                out_dict,
                 depth_limit=1,
-                with_name="METSystematic",
+                parameters=out.layout.parameters,
+                behavior=out.behavior,
             )
-
-        return awkward.zip(
-            out_dict,
-            depth_limit=1,
-            parameters=out.layout.parameters,
-            behavior=out.behavior,
-        )
 
     def uncertainties(self):
         return ["MET_UnclusteredEnergy"]

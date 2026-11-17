@@ -496,3 +496,19 @@ def test_tracked_reconstruction_bypasses_legacy_public_reducer_patch(
         restored["tracked_eft"].eval({})[("eft", "nominal")],
         [0.0, 0.0, -7.0, 0.0],
     )
+
+
+@pytest.mark.parametrize("storage", ["Double", "Weight"])
+def test_empty_handles_plain_and_structured_storage(storage):
+    histogram = SparseHist(
+        hist.axis.StrCategory([], name="process", growth=True),
+        hist.axis.Regular(1, 0, 1, name="x"), storage=storage)
+    assert histogram.empty()
+    histogram.fill(process="zero", x=np.array([.5]), weight=np.array([0.]))
+    assert histogram.empty()
+    histogram.fill(process="cancelled", x=np.array([.5, .5]), weight=np.array([2., -2.]))
+    assert histogram.empty() is (storage == "Double")
+    if storage == "Weight":
+        view = histogram.view(flow=True)[("cancelled",)]
+        assert view.value.sum() == 0.
+        assert view.variance.sum() == 8.

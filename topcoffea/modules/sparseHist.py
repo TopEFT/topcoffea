@@ -68,6 +68,12 @@ def _read_tracked_sparsehist_from_reduce(
     )
 
 
+def _restore_sumw2_provenance(reconstruct, args, provenance):
+    histogram = reconstruct(*args)
+    histogram._sumw2_provenance = provenance
+    return histogram
+
+
 class SparseHist(hist.Hist, family=hist):
     """Histogram specialized for sparse categorical data."""
 
@@ -390,6 +396,36 @@ class SparseHist(hist.Hist, family=hist):
         for indices in self._dense_hists:
             yield self.index_to_categories(indices)
 
+    def sumw2_recording_state(self, index):
+        """Return (recorded, source systematic labels) for one sparse bin.
+
+        An intact systematic axis retains origin evidence, but without explicit
+        recording state neither an allocated slot nor its zero value proves a moment.
+        """
+        states = getattr(self, "_sumw2_provenance", {})
+        if index in states:
+            return states[index]
+        names = tuple(self.categorical_axes.name)
+        labels = frozenset()
+        if "systematic" in names:
+            labels = frozenset([str(self.index_to_categories(index)[names.index("systematic")])])
+        return False, labels
+
+    def _merge_sumw2_provenance(self, index, incoming):
+        states = getattr(self, "_sumw2_provenance", None)
+        if states is None:
+            states = self._sumw2_provenance = {}
+        if index in states:
+            recorded, labels = states[index]
+            if recorded != incoming[0]:
+                raise ValueError("Cannot combine recorded and unrecorded sumw2 in one sparse bin.")
+            incoming = recorded, labels | incoming[1]
+        states[index] = incoming
+
+    def _with_sumw2_provenance(self, reduction):
+        states = getattr(self, "_sumw2_provenance", None)
+        return (_restore_sumw2_provenance, (reduction[0], reduction[1], states)) if states else reduction
+
     def _fill_bookkeep(self, *args):
         super().fill(*args)
         index_key = self.categories_to_index(args)
@@ -405,6 +441,7 @@ class SparseHist(hist.Hist, family=hist):
         threads=None,
         record_raw_count=None,
         _raw_count_values=None,
+        _record_sumw2=None,
         **kwargs,
     ):
         cats, nocats = self._split_axes(kwargs)
@@ -420,6 +457,14 @@ class SparseHist(hist.Hist, family=hist):
 
         raw_values = nocats if _raw_count_values is None else _raw_count_values
         self._record_raw_count_fill(index_key, raw_values, record_raw_count)
+
+        if _record_sumw2 is not None or h.storage_type is hist.storage.Weight:
+            if _record_sumw2 is not None and not isinstance(_record_sumw2, (bool, np.bool_)):
+                raise TypeError("sumw2 recording flag must be boolean.")
+            labels = frozenset([str(cats["systematic"])]) if "systematic" in cats else frozenset()
+            self._merge_sumw2_provenance(index_key, (
+                True if _record_sumw2 is None else bool(_record_sumw2), labels
+            ))
 
         return h.fill(weight=weight, sample=sample, threads=threads, **nocats)
 
@@ -507,6 +552,7 @@ class SparseHist(hist.Hist, family=hist):
             named_key = self.index_to_categories(index_key)
             new_named = new_hist._make_tuple(named_key, included_axes)
             new_index = new_hist._fill_bookkeep(*new_named)
+            new_hist._merge_sumw2_provenance(new_index, self.sumw2_recording_state(index_key))
             new_hist._dense_hists[new_index] += dense_hist
             if new_hist.track_raw_counts:
                 new_hist._merge_raw_count_state(
@@ -721,6 +767,7 @@ class SparseHist(hist.Hist, family=hist):
                 new_index = hnew.categories_to_index(new_key.values())
 
                 hnew._fill_bookkeep(*new_key.values())
+                hnew._merge_sumw2_provenance(new_index, self.sumw2_recording_state(old_index))
                 hnew._dense_hists[new_index] += dense
                 if hnew.track_raw_counts:
                     hnew._merge_raw_count_state(
@@ -763,7 +810,12 @@ class SparseHist(hist.Hist, family=hist):
 
     def empty(self):
         for h in self._dense_hists.values():
-            if np.any(h.view(flow=True) != 0):
+            values = h.view(flow=True)
+            # Weight storage is a structured value/variance view. Cancellation
+            # of its signed yield does not erase a positive second moment.
+            fields = values.dtype.names
+            if (any(np.any(values[field] != 0) for field in fields)
+                    if fields else np.any(values != 0)):
                 return False
         return True
 
@@ -801,8 +853,16 @@ class SparseHist(hist.Hist, family=hist):
                 )
             for index_oh, oh in other._dense_hists.items():
                 cats = other.index_to_categories(index_oh)
+                existing_index = self.categories_to_index(cats) if all(
+                    value in self.axes[name] for name, value in zip(self.categorical_axes.name, cats)
+                ) else None
+                existing = existing_index in self._dense_hists if existing_index is not None else False
+                previous = self.sumw2_recording_state(existing_index) if existing else None
                 self._fill_bookkeep(*cats)
                 index = self.categories_to_index(cats)
+                if previous is not None and index not in getattr(self, "_sumw2_provenance", {}):
+                    self._merge_sumw2_provenance(index, previous)
+                self._merge_sumw2_provenance(index, other.sumw2_recording_state(index_oh))
                 if self.track_raw_counts:
                     self._merge_raw_count_state(
                         index,
@@ -819,7 +879,7 @@ class SparseHist(hist.Hist, family=hist):
 
     def __reduce__(self):
         if self.track_raw_counts:
-            return (
+            return self._with_sumw2_provenance((
                 _read_tracked_sparsehist_from_reduce,
                 (
                     type(self),
@@ -829,8 +889,8 @@ class SparseHist(hist.Hist, family=hist):
                     self._dense_hists,
                     self._validated_raw_count_states(),
                 ),
-            )
-        return (
+            ))
+        return self._with_sumw2_provenance((
             type(self)._read_from_reduce,
             (
                 list(self.categorical_axes),
@@ -838,7 +898,7 @@ class SparseHist(hist.Hist, family=hist):
                 self._init_args,
                 self._dense_hists,
             ),
-        )
+        ))
 
     @classmethod
     def _read_from_reduce(

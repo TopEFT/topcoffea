@@ -72,3 +72,22 @@ See [physics extension guides](physics_extension_guides.md) before changing
 coefficient ordering, helper transformations, `HistEFT`, or the generic
 `SparseHist` substrate. Consumer-specific coefficient lists and sample
 treatment remain outside this repository's default policy.
+
+Embedded moments carry sparse-bin recording state and source systematic labels
+through categorical selection, grouping, addition and pickle reconstruction.
+`sumw2_recording_state(index)` exposes that evidence independently of numerical
+values: zero is a valid recorded moment, while a skipped fill is unrecorded.
+Combining recorded and unrecorded contributions in one sparse bin raises an
+error. Consumers must use the retained source labels when selecting away a
+systematic axis; axis absence alone does not establish nominal origin.
+
+An allocated slot without explicit recording evidence remains unrecorded, even
+when its value is zero and its systematic label is nominal. Historical schema
+v2 companion validation follows its own contract. Missing origin or recording
+state cannot be repaired from values or axis absence; transformations transport
+existing evidence and reject incompatible recorded/unrecorded contributions.
+
+`SparseHist.empty()` checks every stored field. Weight storage with a cancelled
+signed yield and a positive second moment is nonempty; its value/variance view
+is not comparable to a scalar zero as a single structured array. This rule
+also preserves Double and MultiCell numeric storage behavior.

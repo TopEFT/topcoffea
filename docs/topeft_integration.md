@@ -1,43 +1,44 @@
 # topeft integration
 
-The consuming [`topeft`](https://github.com/TopEFT/topeft) workflow owns the
+The consuming [`topeft`](https://github.com/TopEFT/topeft) workflow selects the
 exact compatible `topcoffea` ref through its installation or environment
 configuration. Record both resolved commits for a campaign; do not infer a
 compatible pair from similarly named branches.
 
-## Physics ownership map
+## Interface responsibilities
 
-| Interface | `topcoffea` owns | `topeft` owns |
+| Interface | `topcoffea` provides or implements | `topeft` configures or selects |
 | --- | --- | --- |
 | Corrections and calibrated objects | Reusable evaluators, weight helpers, JEC stack, corrected-jet and Type-1 MET factories, variation/schema contracts, and packaged shared payload interfaces | Era/tag/payload selection, working points, forward-JER policy, enabled variations, processor dispatch, and downstream category use |
 | Object and event selection | Generic jet predicates, Run-3 jet-ID interpretation, dataset-overlap, SFOS, and Z-window utilities | Concrete object definitions, thresholds, trigger lists, dataset precedence, filters, mass windows, object-cleaning policy, sample-role overlap masks, and regions |
 | EFT and histograms | Coefficient algebra, `HistEFT`, and the generic `SparseHist` substrate | Per-sample EFT treatment, coefficient preparation, category/observable filling, SM-point consumption, and scaling/artifact policy |
-| Shared normalization data | Packaged luminosity and b-tag working-point authorities | Sample metadata, selected era/tagger/working point, sample roles, and normalized analysis yields |
+| Shared normalization data | Packaged luminosity and b-tag working-point reference values | Sample metadata, selected era/tagger/working point, sample roles, and normalized analysis yields |
 
 Read the [correction interfaces](correction_interfaces.md) or
 [EFT interfaces](eft_interfaces.md) for reusable guarantees. The corresponding
-[`topeft` ownership index](https://github.com/TopEFT/topeft/blob/HEAD/docs/reference/shared_topcoffea_interfaces.md)
+[`topeft` shared-interface index](https://github.com/TopEFT/topeft/blob/run3_test_mmerged/docs/reference/shared_topcoffea_interfaces.md)
 links the maintained analysis choices for
-[corrections](https://github.com/TopEFT/topeft/blob/HEAD/docs/reference/corrections_weights_and_systematics.md),
-[objects and event selection](https://github.com/TopEFT/topeft/blob/HEAD/docs/reference/objects_selections_and_triggers.md),
-[sample roles](https://github.com/TopEFT/topeft/blob/HEAD/docs/reference/sample_roles_and_normalization.md),
-and [EFT consumption](https://github.com/TopEFT/topeft/blob/HEAD/docs/reference/histeft.md).
-The two repositories deliberately cross-link instead of copying each other's
-authority.
+[corrections](https://github.com/TopEFT/topeft/blob/run3_test_mmerged/docs/reference/corrections_weights_and_systematics.md),
+[objects and event selection](https://github.com/TopEFT/topeft/blob/run3_test_mmerged/docs/reference/objects_selections_and_triggers.md),
+[sample roles](https://github.com/TopEFT/topeft/blob/run3_test_mmerged/docs/reference/sample_roles_and_normalization.md),
+and [EFT consumption](https://github.com/TopEFT/topeft/blob/run3_test_mmerged/docs/reference/histeft.md).
+The two repositories cross-link their interface implementation and analysis
+configuration details.
 
 `lo_xsec_samples`, when encountered in the consumer, is a sample-role set. It
-does not contain or own numeric cross-section data.
+does not contain numeric cross-section data.
 
 ## Change boundary
 
-A generic evaluator, factory, payload-packaging, selection-helper, EFT-algebra,
-or histogram-interface change belongs in `topcoffea`. Enabling that mechanism
-for a concrete era, sample, working point, region, or systematic set belongs in
-`topeft`. A cross-boundary change must validate both contracts; availability in
-the shared library does not make a mechanism accepted analysis policy.
+`topcoffea` implements generic evaluators, factories, payload packaging,
+selection helpers, EFT algebra, and histogram interfaces. `topeft` configures
+or enables those mechanisms for concrete eras, samples, working points,
+regions, and systematic sets. A change spanning both repositories must
+validate both contracts; providing a mechanism in `topcoffea` does not
+automatically enable it in a consuming `topeft` analysis.
 
 The maintained shared-extension routes are indexed in
-[physics extension guides](physics_extension_guides.md). Analysis-policy
+[physics extension guides](physics_extension_guides.md). Analysis configuration
 changes follow the contextual `topeft` how-to guide linked from its reference
 entry.
 

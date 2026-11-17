@@ -1,13 +1,13 @@
 # topcoffea documentation
 
-This is the canonical map of maintained `topcoffea` documentation. Start with
-[topeft integration](topeft_integration.md) when choosing a shared interface
-or determining which repository owns a change.
+This index links maintained `topcoffea` documentation. Use
+[topeft integration](topeft_integration.md) to identify the `topcoffea`
+interface and corresponding `topeft` configuration to inspect or change.
 
 `topcoffea` owns reusable mechanisms: correction and selection algorithms,
 corrected-object factories, EFT algebra, histogram interfaces, and packaged
 shared payload interfaces. A consuming analysis such as
-[`topeft`](https://github.com/TopEFT/topeft/blob/HEAD/docs/README.md) owns the
+[`topeft`](https://github.com/TopEFT/topeft/blob/run3_test_mmerged/docs/README.md) owns the
 concrete era, sample, working-point, category, and activation policy. These
 pages describe the shared contract; they do not replace the consuming
 analysis's policy documentation.

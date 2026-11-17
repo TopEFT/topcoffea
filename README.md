@@ -7,6 +7,8 @@ cd topcoffea
 pip install -e .
 ```
 
+Start with the [documentation index](docs/README.md) for current shared interfaces.
+
 When pairing this repository with [`topeft`](https://github.com/TopEFT/topeft),
 use the exact `topcoffea` ref selected by the consuming workflow (for example
 `TOPCOFFEA_GIT_REF` in topeft's installer) and record both commits. Branch names
@@ -36,7 +38,7 @@ When working on `topcoffea` and `topeft` together from sibling checkouts:
 
 Examples of analysis repositories making use of `topcoffea`:
 * [`topeft`](https://github.com/TopEFT/topeft): EFT analyses in the top sector.
-* [`ewkcoffea`](): Multi boson analyses.
+* `ewkcoffea`: Multi boson analyses.
 
 ## Accessing package resources
 
@@ -48,6 +50,8 @@ the repository is nested inside another checkout or installed as a dependency
 of a larger project.
 
 ```python
+import json
+
 from topcoffea.modules.paths import topcoffea_path
 
 with open(topcoffea_path("params/params.json")) as handle:
@@ -58,7 +62,7 @@ Downstream projects should treat the returned path as read-only package data
 and avoid constructing relative paths by hand (for example `../data/...`) so
 they always inherit the correct behaviour. When integrating with
 [`topeft`](https://github.com/TopEFT/topeft), the editable install performed by
-[`scripts/install_topcoffea.sh`](https://github.com/TopEFT/topeft/blob/run3_test_mmerged_anpicci/scripts/install_topcoffea.sh)
+[`scripts/install_topcoffea.sh`](https://github.com/TopEFT/topeft/blob/run3_test_mmerged/scripts/install_topcoffea.sh)
 should be allowed to supply the packaged resources—avoid keeping in-tree
 overlays that could mask the installed `topcoffea` package.
 
@@ -87,19 +91,19 @@ that only deserialize their payload on demand:
 ```python
 from topcoffea.modules.utils import iterate_histograms_from_pkl
 
-lazy_entries = list(iterate_histograms_from_pkl("/path/to/output.pkl.gz"))
-
-for key, lazy_hist in lazy_entries:
+for key, lazy_hist in iterate_histograms_from_pkl("/path/to/output.pkl.gz"):
     hist = lazy_hist.materialize()
     try:
         process_histogram(key, hist)
     finally:
-        lazy_hist.release()  # drop the cached histogram when you are done
+        lazy_hist.release()  # drop the materialized histogram when done
 ```
 
-Using `iterate_histograms_from_pkl` keeps peak memory usage constant with
-respect to the histogram payloads while still supporting the existing pickle
-format.
+Direct iteration avoids retaining every lazy entry and its serialized payload
+in a list. Each `LazyHist` retains its serialized payload while referenced;
+`release()` clears only the cached materialized histogram. The fallback loader
+may still materialize the full histogram mapping, so this example does not
+guarantee constant total process memory.
 
 ## Compatibility helpers
 

@@ -37,6 +37,44 @@ The LHE scale-weight helper does not make the deprecated `topeft`
 renormalization-envelope option active; envelope and downstream template policy
 belong to the caller.
 
+## Double-working-point Method1a
+
+`get_method1a_wgt_doublewp(effA, effB, sfA, sfB, cutA, cutB, cutC)`
+returns `(pData, pMC)`; the caller forms their ratio. For Medium/Loose
+use, A is Medium, B is Loose, and the masks select Medium, Loose-not-Medium,
+and not-Loose jets respectively.
+
+For a Loose-not-Medium jet, a strictly negative data interval
+`effB * sfB - effA * sfA` is replaced by that jet's MC interval
+`effB - effA`. This gives a local factor of one when the MC interval is
+nonzero. Other jet factors are retained; the complete event weight need not
+be one. The existing zero-MC protection replaces a zero event-level
+`pMC` product with one before returning it.
+
+This bounded fallback is not global weight clipping or an absolute-value
+transformation. It does not remove other negative factors or negative EFT
+histogram cells. The implementation is in
+[`corrections.py`](../topcoffea/modules/corrections.py), with focused
+coverage in [`test_method1a_doublewp.py`](../tests/test_method1a_doublewp.py).
+
+## Optional correction telemetry
+
+The correction helpers, `JECStack`, and jet/MET factories instrument reached
+synchronous operations through `telemetry_operation`.
+`telemetry_context(reporter, syst_var="preloop", iteration_index=-1)`
+supplies the caller's reporter for one block and restores the previous
+context on exit. With no reporter, operation timing and row emission are
+disabled; the consumer must explicitly enable and supply diagnostics.
+
+Rows emitted through `reporter.mark("processor_operation", ...)` aggregate
+operation and parent names, object-variation label, iteration index,
+wall/process-CPU nanoseconds, calls, and failed calls. Inclusive time overlaps
+child operations; exclusive time subtracts only immediate timed children.
+Lazy work is not forced or attributed to the block that merely schedules it.
+Reporter emission errors warn after timing ends; a measured operation's own
+exception still propagates. Persistence and activation belong to the consumer,
+not to the shared correction interface.
+
 ## Correctionlib NumPy boundary
 
 Correctionlib evaluators receive flat NumPy arrays, not Awkward-1 high-level
@@ -194,4 +232,4 @@ Supported mechanism changes and the corresponding consumer boundary are
 collected in [physics extension guides](physics_extension_guides.md). Concrete
 `topeft` policy and downstream use are described in
 [topeft integration](topeft_integration.md) and the consuming
-[`topeft` correction reference](https://github.com/TopEFT/topeft/blob/HEAD/docs/reference/corrections_weights_and_systematics.md).
+[`topeft` correction reference](https://github.com/TopEFT/topeft/blob/run3_test_mmerged/docs/reference/corrections_weights_and_systematics.md).

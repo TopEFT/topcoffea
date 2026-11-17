@@ -7,7 +7,7 @@
 
 ## Summary
 
-This branch is an intentionally broad shared-library integration update.
+This historical update combined several shared-library changes.
 Relative to `run3_test_mmerged_anpicci`, it refreshes packaged Run 3 JME
 payloads, supports the paired Run 3 JER scale-factor schema, validates and
 fingerprints remote-executor environment archives, enforces NumPy/scalar inputs

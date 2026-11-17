@@ -54,7 +54,7 @@ it sample, category, or EFT interpretation.
 owns per-sample EFT/SM/ignored treatment, coefficient preparation from source
 metadata, category and observable filling, SM-point use in data-driven
 subtraction, and later scaling consumers. See the consuming
-[`topeft` HistEFT reference](https://github.com/TopEFT/topeft/blob/HEAD/docs/reference/histeft.md)
+[`topeft` HistEFT reference](https://github.com/TopEFT/topeft/blob/run3_test_mmerged/docs/reference/histeft.md)
 and the
 [integration ownership map](topeft_integration.md).
 

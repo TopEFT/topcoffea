@@ -293,6 +293,7 @@ class HistEFT(SparseHist, family=_family):
                 weight=payload,
                 record_raw_count=record_raw_count,
                 _raw_count_values=raw_count_values,
+                _record_sumw2=bool(fill_sumw2) if self._store_sumw2 else None,
             )
             return self
 
@@ -444,7 +445,7 @@ class HistEFT(SparseHist, family=_family):
         args.update(self._init_args_eft)
 
         if self.track_raw_counts:
-            return (
+            return self._with_sumw2_provenance((
                 _read_tracked_sparsehist_from_reduce,
                 (
                     type(self),
@@ -454,9 +455,9 @@ class HistEFT(SparseHist, family=_family):
                     self._dense_hists,
                     self._validated_raw_count_states(),
                 ),
-            )
+            ))
 
-        return (
+        return self._with_sumw2_provenance((
             type(self)._read_from_reduce,
             (
                 list(self.categorical_axes),
@@ -464,7 +465,7 @@ class HistEFT(SparseHist, family=_family):
                 args,
                 self._dense_hists,
             ),
-        )
+        ))
 
     def make_scaling(self, flow='show', wc_list=None):
         """

@@ -810,7 +810,12 @@ class SparseHist(hist.Hist, family=hist):
 
     def empty(self):
         for h in self._dense_hists.values():
-            if np.any(h.view(flow=True) != 0):
+            values = h.view(flow=True)
+            # Weight storage is a structured value/variance view. Cancellation
+            # of its signed yield does not erase a positive second moment.
+            fields = values.dtype.names
+            if (any(np.any(values[field] != 0) for field in fields)
+                    if fields else np.any(values != 0)):
                 return False
         return True
 

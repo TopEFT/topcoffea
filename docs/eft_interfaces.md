@@ -86,3 +86,8 @@ when its value is zero and its systematic label is nominal. Historical schema
 v2 companion validation follows its own contract. Missing origin or recording
 state cannot be repaired from values or axis absence; transformations transport
 existing evidence and reject incompatible recorded/unrecorded contributions.
+
+`SparseHist.empty()` checks every stored field. Weight storage with a cancelled
+signed yield and a positive second moment is nonempty; its value/variance view
+is not comparable to a scalar zero as a single structured array. This rule
+also preserves Double and MultiCell numeric storage behavior.
